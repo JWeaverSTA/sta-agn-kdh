@@ -8,9 +8,11 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii
-from astropy.table import Table, Column
+from astropy.table import Table, Column, MaskedColumn
 import astro_funclib as astrotools
 import adv_funclib as advtools
+import agn_funclib as agntools
+import time
 
 # Input Parameters
 lightcurvedir = 'QSO_S82/'
@@ -19,7 +21,12 @@ masterfile = 'DB_QSO_S82.dat'
 outputdir = 'DustyPyton/'
 outputfile = 'DusyOutput.junk.cat'
 
+# Extra verbosity in lc fitting
+verbose1 = True
+
 # Data Associated Arrays
+# Filters (in order)
+filters = ( 'u', 'g', 'r', 'i', 'z' )
 # Wavelengths
 wav = { 'u' : 3543.,
         'g' : 4770.,
@@ -32,6 +39,12 @@ wavcolor = { 'u' : 'b',
              'r' : 'orange',
              'i' : 'r',
              'z' : 'k'}
+# Extinction Coefficients (Mag)
+extmag_coeff = { 'u_mag' : 1.0,
+                 'g_mag' : 0.736,
+                 'r_mag' : 0.534,
+                 'i_mag' : 0.405,
+                 'z_mag' : 0.287 }
 # Emission lines
 chem = { 'Ly$_{\infty}$'  : 912.00,
          'Ly$_{\\alpha}$' : 1215.67,
@@ -43,7 +56,7 @@ chem = { 'Ly$_{\infty}$'  : 912.00,
          'H$_{\\alpha}$'  : 6562.80}
 
 # Load Masterfile
-masterdata = ascii.read( masterdir + masterfile )
+masterdata = ascii.read( table = masterdir + masterfile )
 masterdata['ra'] = astrotools.deg2hr( masterdata['ra'] )
 nagn = np.arange( 1, len( masterdata ) + 1 )
 nagn_init = len( nagn ) + 1
@@ -64,7 +77,7 @@ ideclo = -1.27
 idechi = 1.27
 inumlook = 0
 ioutput = 'OFF'
-iverbose = 'OFF'
+iverbose = 'ON'
 
 # Colors
 gi_color = masterdata['g'] - masterdata['i']
@@ -212,7 +225,7 @@ while truth_nav not in ('end','exit','q'):
                 print '   [A] ... Automatic'
                 print ' '
 
-                truth_plot = raw_input('CHOICE: ')
+                truth_plot = raw_input( 'CHOICE: ' )
                 print ' ' 
                 
                 plt.ion()
@@ -270,16 +283,224 @@ while truth_nav not in ('end','exit','q'):
                     ax14.set_xlabel( 'RA (h)' )
 
                     # Must specifty layout POST plot
-                    fig1.tight_layout(rect=[0,0,1,0.9])
+                    fig1.tight_layout( rect=[0,0,1,0.9] )
 
                     # Draw figure
                     fig1.canvas.draw_idle()
                     truth_plot = ''
 
                     # Close figure
-                    truth_plot = raw_input('CLOSE: ')
+                    truth_plot = raw_input( 'CLOSE: ' )
                     if truth_plot == '':
                       plt.close('all')
                       print ' '
 
 
+                # Lightcurves
+                if truth_plot in ( 'M', 'A' ):
+
+                    # Remind user that output is off in automatic mode
+                    if ( truth_plot in 'A' ) & ( output == 'OFF' ):
+                        truth_output = raw_input( 'WARNING: OUTPUT IS OFF - CHANGE? [Y/n] ')
+                        if truth_output in ( 'Y', 'y' ):
+                            output = 'ON'
+                            print '* OUTPUT SET TO "ON"'
+
+                    # Remind user that verbose is on in automatic mode
+                    if ( truth_plot in 'A' ) & ( verbose == 'ON' ):
+                        truth_output = raw_input( 'WARNING: VERBOSE IS ON - CHANGE? [Y/n] ')
+                        if truth_output in ( 'Y', 'y' ):
+                            verbose = 'OFF'
+                            print '* VERBOSE SET TO "OFF"'
+
+                    # Translate verbosity
+                    if verbose == 'ON':
+                        verbose = True
+                    elif verbose == 'OFF':
+                        verbose = False     
+
+
+                    # init figures
+                    if truth_plot in 'M':
+                        fig2, ( ( ax21, ax22 ),
+                        	    ( ax23, ax24 ),
+                        	    ( ax25, ax26 ) ) = plt.subplots(nrows=3 ,ncols=2, figsize = (10,10))
+                        ax23t = ax23.twiny()
+                        ax24t = ax24.twiny()
+                    
+                    # output file
+                    if output == 'ON':
+                        print 'make that table.'
+                    	# Setup table now? columns later?
+
+
+                    # Loop over LC
+                    numtotal = len( selectdata )
+                    for lc_index, num in enumerate( xrange( numtotal ) ):
+                        
+                        # Get master data info
+                        lc_info = selectdata[lc_index]
+
+                        # Open raw lightcurve
+                        lc_id = lc_info['dbID']
+                        colnames = [ [ i + '_mjd', i + '_mag', i + '_merr' ] for i in filters ]
+                        colnames = sum( colnames, [] ) + [ 'RA', 'Dec' ]
+                        rawmag = ascii.read( table = lightcurvedir + str( lc_id ),
+                                             names = colnames )
+
+                        # Update user
+                        num = num + 1
+                        pc = num / numtotal * 100.
+                        print '%3.2f%% (%i/%i)' %( pc, num, numtotal )
+                        if verbose:
+                            print ''
+                            print 'Read: Opened file %i containing %i epochs' %( lc_id, len( rawmag ) )
+                            print '-------------------------------------------------------------------'
+
+                        # Mask bad values
+                        cleanmag = agntools.maskval( intable = rawmag,
+                                                      val = -99.99,
+                                                      test = 'eq',
+                                                      str_pattern = '_mag',
+                                                      verbose = verbose )
+
+                        cleanmag = agntools.maskval( intable = cleanmag,
+                                                      val = 30.0,
+                                                      test = 'gt',
+                                                      str_pattern = '_mag',
+                                                      verbose = verbose )
+
+                        cleanmag = agntools.maskval( intable = cleanmag,
+                                                      val = 10.00,
+                                                      test = 'lt',
+                                                      str_pattern = '_mag',
+                                                      verbose = verbose )
+
+                        cleanmag = agntools.maskval( intable = cleanmag,
+                                                      val = 1.0,
+                                                      test = 'gt',
+                                                      str_pattern = '_merr',
+                                                      verbose = verbose )
+
+                        # Correct for dust extinction
+                        extmag_ref = lc_info['Au']
+                        corrmag = astrotools.extcorr( cleanmag, extmag_ref, extmag_coeff )
+
+                        # Create table of fluxes
+                        fluxtable = Table()
+                        if verbose:
+                            print 'Fluxtable: Created table of fluxes'
+
+                        avgepoch = np.mean([ corrmag[ i + '_mjd'] for i in filters ], 0)
+                        fluxtable.add_column( MaskedColumn( data = avgepoch,
+                                                            name = 'mjd' ) )
+
+                        if verbose:
+                            print '* Added MJD column'
+                        for i in filters:
+                            f, ferr = astrotools.ab2mJy( corrmag[ i + '_mag' ], corrmag[ i + '_merr'] )
+                            fcol = MaskedColumn( data = f,
+                                                 name = i + '_f' )
+                            ferrcol = MaskedColumn( data = ferr,
+                                                    name = i + '_ferr' )
+                            fluxtable.add_columns( [ fcol, ferrcol ] ) 
+
+                            if verbose:
+                                avgf, avgferr = advtools.optavg( fcol, ferrcol )
+                                print '* Average %s flux ... %1.4f +/- %1.4f mJy' %( i, avgf, avgferr )
+
+                        fluxtable = fluxtable.filled(np.nan)
+
+                        # Fit lightcurves
+                        # Update user
+                        if verbose:
+                            print 'Lightcurve: Fitting for model -> A(w) + B(w) * L(t)'
+                        
+                        # inital values
+                        dlen = len( filters )
+                        xlen = len( fluxtable )
+
+                        A = np.zeros( dlen )
+                        B = np.zeros( dlen )
+                        Asig = np.zeros( dlen )
+                        Bsig = np.zeros( dlen )
+
+                        L = np.ones( xlen )
+                        Lsig = np.ones( xlen )
+                        L0 = np.ones( dlen )
+
+                        # Loop over filters for inital guesses for A(w), B(w)
+                        if verbose1:
+                            print 'Optimal Average: Initalising A(w), B(w) ...'
+                        for i, j in enumerate( filters ):
+                            x = fluxtable[ j +'_f' ]
+                            xsig = fluxtable[ j + '_ferr' ]
+                            A[i], Asig[i] = advtools.optavg( x, xsig )
+                            B[i], Bsig[i] = np.sqrt( advtools.optavg( ( x - A[i] )**2, xsig ) )
+
+                            if verbose1:
+                                print '* A(%s) = %2.5f +/- %2.5f | B(%s) = %2.5f +/- %2.5f' %( j, A[i], Asig[i], j, B[i], Bsig[i] )
+
+                        # Loop until convergence
+                        loopnum = 0
+                        concrit = 1.
+                        conval = 1E-10
+                        while (concrit > conval ):
+
+                            # Add to loop:
+                            loopnum += 1
+
+                            # Update user                            
+                            if verbose1:
+                                print 'Loop %i | Criterion ... %2.1e > %2.1e' %( loopnum, concrit, conval )
+
+                            # Store old L
+                            oldL = np.mean( L )
+
+                            # Scale to find L(t)
+                            if verbose1:
+                                print 'Optimal Scaling: Calculating L(t) ...'
+                            for i, fluxrow in enumerate( fluxtable ):
+                                t = np.array( [ fluxrow[ j +'_f' ] for j in filters  ] )
+                                tsig = np.array( [ fluxrow[ j + '_ferr' ] for j in filters ] )
+                                L[i], Lsig[i] = advtools.optscl( t - A, tsig, B )
+
+                                if verbose1:
+                                    mjd = fluxrow['mjd']
+                                    print '* L(%.1f) = %2.1f +/- %2.1f' %( mjd, L[i], Lsig[i] )
+
+                            # Normalise L(t)
+                            if verbose1:
+                                print 'Normalisation: Fixing L(t)'
+                            avgL = advtools.optavg( L, Lsig )[0]
+                            L = L - avgL
+                            avgL_squ = advtools.optavg( L**2, Lsig )[0]
+                            L = L / np.sqrt( avgL_squ )
+                            if verbose1:
+                                newavgL = advtools.optavg( L, Lsig )[0]
+                                print '* <L> = %2.1f | <L^2> = %2.1f ... <L> = %2.1f' %( avgL, avgL_squ, newavgL )
+
+                            # Solve for A(w), B(w) [Hessian for sigmas]
+                            if verbose1:
+                                print ' Fitline: Calculating A(w), B(w) ...'
+                            for i, j in enumerate( filters ):
+                                x = fluxtable[ j +'_f' ]
+                                xsig = fluxtable[ j + '_ferr' ]
+                                A[i], B[i], Asig[i], Bsig[i], L0[i] = advtools.fitline( L, x, xsig )
+
+                                if verbose1:
+                                    print '* A(%s) = %2.5f +/- %2.5f | B(%s) = %2.5f +/- %2.5f' %( j, A[i], Asig[i], j, B[i], Bsig[i] )
+
+                            # Compute convergence criterion
+                            Ldiff = abs( np.mean( L ) - oldL )
+                            avgLsig = np.mean( Lsig )
+                            concrit = Ldiff / avgLsig
+
+                            
+                        # Update user
+                        if verbose:
+                            print 'Lightcurve: Convergence succeeded on loop %i' %( loopnum )
+                            print 'Lightcurve: Final Values for %i' %( lc_id ) 
+                            for i, j in enumerate( filters ):
+                                print '* A(%s) = %2.5f +/- %2.5f | B(%s) = %2.5f +/- %2.5f' %( j, A[i], Asig[i], j, B[i], Bsig[i] )
+                            raw_input('...')
