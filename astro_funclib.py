@@ -18,6 +18,12 @@ def deg2hr( deg ):
 
 	return hr
 
+# Accretion Disk Spectrum in Magnitudes
+@njit
+def accretion_magspec( wav, wavfid, magfid ):
+	mag = -2.5 * np.log10( ( wav / wavfid )**(-1./3.) ) + magfid
+	return mag
+
 # Accretion Disk Color
 @njit
 def accretion_color( wav1, wav2 ):
@@ -43,12 +49,14 @@ def mJy2ab( f, fsig ):
 # Observed to rest wavelength
 @njit
 def obs2restwav( wav, z ):
-	return wav / ( 1. + z )
+	wavz = np.array( [ w / ( 1. + z ) for w in wav ] )
+	return wavz
 
 # Rest to observed wavelength
 @njit
-def rest2obswav( wav, z ):
-	return wav * ( 1. + z )
+def rest2obswav( wavz, z ):
+	wav = np.array( [ w * ( 1. + z) for w in wavz ] )
+	return wav
 
 # Extinction correction
 # Cannot njit

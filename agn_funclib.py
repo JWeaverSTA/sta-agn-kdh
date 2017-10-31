@@ -1,4 +1,5 @@
 # AGN Project Function Library
+# Mainly subroutine like functions
 # Created 27.10.17
 
 # Imports
@@ -57,3 +58,37 @@ def maskval( intable, val, test = 'eq', str_pattern = '_mag', verbose = False ):
 		print '* Total of %i of %i epochs affected (%2.1f %%)' %( trcount, tablelen, tpce)
 
 	return table
+
+
+# Estimate x when lower sig passes y=0 for a set of model
+def estzero( A, Asig, B, Bsig, x0, filters = None ):
+	Avar = Asig**2
+	Bvar = Bsig**2
+	
+	p2 = B**2 - Bvar
+	p1 = A * B
+	p0 = A**2 - Avar
+
+	x = - p1 / p2
+	q = x * x - p0 / p2
+
+	xp = x + np.sqrt( q )
+	xm = x - np.sqrt( q )
+
+	fz = np.nanmax( [ xp, xm ], 0 )
+	mask = np.greater( x, x0 )
+	if mask.sum() > 0:
+		print xm, xp, mask
+		fz[mask] = np.nanmin(  xm, xp, 0 )[mask]
+	sel = fz == np.nanmax( fz )
+
+	fzero = ( fz[ sel ] + x0[ sel ] )[0]
+
+	if filters is None:
+		return fzero
+
+	else:
+		filterzero = filters[ sel ][0]
+		return fzero, filterzero
+
+

@@ -12,6 +12,7 @@ from astropy.table import Table, Column, MaskedColumn
 import astro_funclib as astrotools
 import adv_funclib as advtools
 import agn_funclib as agntools
+import dust_funclib as dusttools
 import time
 
 # Input Parameters
@@ -21,12 +22,18 @@ masterfile = 'DB_QSO_S82.dat'
 outputdir = 'DustyPyton/'
 outputfile = 'DusyOutput.junk.cat'
 
+fidwav = 2400. # AA
+
 # Extra verbosity in lc fitting
-verbose1 = True
+verbose1 = False
 
 # Data Associated Arrays
 # Filters (in order)
 filters = ( 'u', 'g', 'r', 'i', 'z' )
+filters = np.array( filters )
+# Dustlaws
+dustlaws = ( 'smc', 'lmc', 'mw', 'agn' )
+dustlaws = np.array( dustlaws )
 # Wavelengths
 wav = { 'u' : 3543.,
         'g' : 4770.,
@@ -54,6 +61,10 @@ chem = { 'Ly$_{\infty}$'  : 912.00,
          'H$_{\infty}$'   : 3560.00,
          'H$_{\\beta}$'   : 4861.32,
          'H$_{\\alpha}$'  : 6562.80}
+
+# Load dustlaw interpolations
+tk_smc = dusttools.smccubic()
+tk_lmc = dusttools.lmccubic()
 
 # Load Masterfile
 masterdata = ascii.read( table = masterdir + masterfile )
@@ -398,16 +409,16 @@ while truth_nav not in ('end','exit','q'):
                         if verbose:
                             print '* Added MJD column'
                         for i in filters:
-                            f, ferr = astrotools.ab2mJy( corrmag[ i + '_mag' ], corrmag[ i + '_merr'] )
+                            f, fsig = astrotools.ab2mJy( corrmag[ i + '_mag' ], corrmag[ i + '_merr'] )
                             fcol = MaskedColumn( data = f,
                                                  name = i + '_f' )
-                            ferrcol = MaskedColumn( data = ferr,
-                                                    name = i + '_ferr' )
-                            fluxtable.add_columns( [ fcol, ferrcol ] ) 
+                            fsigcol = MaskedColumn( data = fsig,
+                                                    name = i + '_fsig' )
+                            fluxtable.add_columns( [ fcol, fsigcol ] ) 
 
                             if verbose:
-                                avgf, avgferr = advtools.optavg( fcol, ferrcol )
-                                print '* Average %s flux ... %1.4f +/- %1.4f mJy' %( i, avgf, avgferr )
+                                avgf, avgfsig = advtools.optavg( fcol, fsigcol )
+                                print '* Average %s flux ... %1.4f +/- %1.4f mJy' %( i, avgf, avgfsig )
 
                         fluxtable = fluxtable.filled(np.nan)
 
@@ -434,7 +445,7 @@ while truth_nav not in ('end','exit','q'):
                             print 'Optimal Average: Initalising A(w), B(w) ...'
                         for i, j in enumerate( filters ):
                             x = fluxtable[ j +'_f' ]
-                            xsig = fluxtable[ j + '_ferr' ]
+                            xsig = fluxtable[ j + '_fsig' ]
                             A[i], Asig[i] = advtools.optavg( x, xsig )
                             B[i], Bsig[i] = np.sqrt( advtools.optavg( ( x - A[i] )**2, xsig ) )
 
@@ -462,7 +473,7 @@ while truth_nav not in ('end','exit','q'):
                                 print 'Optimal Scaling: Calculating L(t) ...'
                             for i, fluxrow in enumerate( fluxtable ):
                                 t = np.array( [ fluxrow[ j +'_f' ] for j in filters  ] )
-                                tsig = np.array( [ fluxrow[ j + '_ferr' ] for j in filters ] )
+                                tsig = np.array( [ fluxrow[ j + '_fsig' ] for j in filters ] )
                                 L[i], Lsig[i] = advtools.optscl( t - A, tsig, B )
 
                                 if verbose1:
@@ -480,12 +491,12 @@ while truth_nav not in ('end','exit','q'):
                                 newavgL = advtools.optavg( L, Lsig )[0]
                                 print '* <L> = %2.1f | <L^2> = %2.1f ... <L> = %2.1f' %( avgL, avgL_squ, newavgL )
 
-                            # Solve for A(w), B(w) [Hessian for sigmas]
+                            # Solve for A(w), B(w)
                             if verbose1:
                                 print ' Fitline: Calculating A(w), B(w) ...'
                             for i, j in enumerate( filters ):
                                 x = fluxtable[ j +'_f' ]
-                                xsig = fluxtable[ j + '_ferr' ]
+                                xsig = fluxtable[ j + '_fsig' ]
                                 A[i], B[i], Asig[i], Bsig[i], L0[i] = advtools.fitline( L, x, xsig )
 
                                 if verbose1:
@@ -496,11 +507,147 @@ while truth_nav not in ('end','exit','q'):
                             avgLsig = np.mean( Lsig )
                             concrit = Ldiff / avgLsig
 
-                            
+
                         # Update user
                         if verbose:
                             print 'Lightcurve: Convergence succeeded on loop %i' %( loopnum )
                             print 'Lightcurve: Final Values for %i' %( lc_id ) 
                             for i, j in enumerate( filters ):
                                 print '* A(%s) = %2.5f +/- %2.5f | B(%s) = %2.5f +/- %2.5f' %( j, A[i], Asig[i], j, B[i], Bsig[i] )
-                            raw_input('...')
+
+                        # Calculate Fzero
+                        F0, filterzero = agntools.estzero( A, Asig, B, Bsig, L0, filters )
+
+                        # Update user
+                        if verbose:
+                            print 'Lightcurve: Flux zeropoint found at L(t) = %3.2f in %s' %( F0, filterzero )
+
+                        # Calculate component spectra
+                        # Update user
+                        if verbose:
+                            print 'Lightcurve: Calculating component spectra'
+
+                        # Create table
+                        spectable = Table()
+
+                        # Calculate variances
+                        Avar = Asig**2
+                        Bvar = Bsig**2
+
+                        # Precalculations
+                        Lmax = np.nanmax( L )
+                        Lmin = np.nanmin( L )
+
+                        # Mean spectrum
+                        mean_spec = A
+                        mean_col = Column( name = 'mean', data = mean_spec )
+
+                        meansig_spec = Asig
+                        meansig_col = Column( name = 'mean_sig', data = meansig_spec )
+
+                        # RMS spectrum
+                        rms_spec = B
+                        rms_col = Column( name = 'rms', data = rms_spec )
+
+                        rmssig_spec = Bsig
+                        rmssig_col = Column( name = 'rms_sig', data = rmssig_spec )
+
+                        # Galaxy spectrum
+                        gal_spec = A + B * ( F0 - L0 )
+                        gal_col = Column( name = 'gal', data = gal_spec )
+
+                        galsig_spec = np.sqrt( Avar + Bvar * ( F0 - L0 )**2 )
+                        galsig_col = Column( name = 'gal_sig', data = galsig_spec )
+
+                        # Bright spectrum
+                        brt_spec = A + B * ( Lmax - L0 )
+                        brt_col = Column( name = 'brt', data = brt_spec )
+
+                        brtsig_spec = np.sqrt( Avar + Bvar * ( Lmax - L0 )**2 )
+                        brtsig_col = Column( name = 'brt_sig', data = galsig_spec )
+
+                        # Faint spectrum
+                        fnt_spec = A + B * ( Lmin - L0 )
+                        fnt_col = Column( name = 'fnt', data = fnt_spec )
+
+                        fntsig_spec = np.sqrt( Avar + Bvar * ( Lmin - L0 )**2 )
+                        fntsig_col = Column( name = 'fnt_sig', data = fntsig_spec )
+
+                        # Difference spectrum
+                        diff_spec = B * ( Lmax - Lmin )
+                        diff_col = Column( name = 'diff', data = diff_spec )
+
+                        diffsig_spec = np.sqrt( Bvar * ( Lmax - Lmin )**2 )
+                        diffsig_col = Column( name = 'diff_sig', data = diffsig_spec )
+
+                        # Variable spectrum
+                        var_spec = A + B * ( L0 - F0 )
+                        var_col = Column( name = 'var', data = var_spec )
+
+                        varsig_spec = np.sqrt( Avar + Bvar * ( L0 - F0 ) )
+                        varsig_col = Column( name = 'var_sig', data = varsig_spec )
+
+                        # Disk spectrum
+                        disk_spec = B * ( ( brt_spec - A ) / B - F0 )
+                        disk_col = Column( name = 'disk', data = disk_spec )
+
+                        disksig_spec = np.sqrt( Bvar ) * ( ( brt_spec - A ) / B - F0 )
+                        disksig_col = Column( name = 'disk_sig', data = disksig_spec )
+
+                        # Append to table
+                        spectable.add_columns( [ mean_col, meansig_col,
+                                                 rms_col, rmssig_col,
+                                                 gal_col, galsig_col,
+                                                 brt_col, brtsig_col,
+                                                 fnt_col, fntsig_col,
+                                                 diff_col, diffsig_col,
+                                                 var_col, varsig_col,
+                                                 disk_col, disksig_col ] )
+
+                        # Update user
+                        if verbose:
+                            for i in spectable.colnames[::2]:
+                                print '* %s spectrum ' %i
+                                for j, k in enumerate( filters ):
+                                    val = spectable[ i ][ j ]
+                                    valsig = spectable[ i + '_sig'][ j ]
+                                    print '** F(%s) = %5.5f +/- %5.5f mJy' %( k, val, valsig )
+
+
+                        # Fit Dust Models
+                        # Update user
+                        if verbose:
+                            print 'Dustfit: Beginning dust fitting'
+
+                        # Calculate restwavelengths
+                        z = lc_info['reds']
+                        wavz = astrotools.obs2restwav( wav.values(), z )
+                        wavz = { k : v for k, v in zip( wav.keys(), wavz ) }
+
+                        # Update user
+                        if verbose:
+                            print 'Dustfit: Found rest wavelengths'
+                            print '* Redshift = %3.2f' %z
+                            for k in filters:
+                                print '* %s observed light at %5.2f A' %(k, wavz[k])
+
+
+                        # Loop over dustlaws
+                        for dust in dustlaws:
+                            if dust == 'smc':
+                                extmag = dusttools.dustlaw( wavz.values(), tk_smc, 'smc' )
+                            if dust == 'lmc':
+                                extmag = dusttools.dustlaw( wavz.values(), tk_lmc, 'lmc' )
+                            if dust == 'mw':
+                                extmag = dusttools.dustlaw( wavz.values(), 'mw' )
+                            if dust == 'agn':
+                                extmag = dusttools.dustlaw( wavz.values(), 'agn' )
+
+                            # Calculate residuals
+                            #residuals = 
+
+
+
+
+                        if truth_plot == 'M':
+                            raw_input( '...' )

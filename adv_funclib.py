@@ -12,9 +12,14 @@ def optavg( x, sig ):
 	top = np.nansum( x * wt )
 	bot = np.nansum( wt )
 	
-	avg = top / bot
-	var = 1. / bot
-	std = np.sqrt( var )
+	if bot == 0:
+		avg = np.nan
+		std = np.nan
+
+	else:
+		avg = top / bot
+		var = 1. / bot
+		std = np.sqrt( var )
 
 	return avg, std
 
@@ -24,11 +29,70 @@ def optscl( x, sig, pfl ):
 	top = np.nansum( x * wt )
 	bot = np.nansum( pfl * wt )
 
-	scl = top / bot
-	var = 1. / bot
-	std = np.sqrt( var )
+	if bot == 0:
+		scl = np.nan
+		std = np.nan
+
+	else:
+		scl = top / bot
+		var = 1. / bot
+		std = np.sqrt( var )
 
 	return scl, std
+
+# Linear Interpolation
+# Does not provide extrapolated sigma
+def linint( x, y, ysig, x0, extrapolation = False ):
+	yvar = ysig**2
+	if x0 < min( x ):
+		if extrapolation:
+			scl  = ( y[1] - y[0] ) / ( x[1] - x[0] )
+			b = y[0] - x[0] * scl
+			val =  scl * x0 + b
+
+			valvar = 0.
+
+		else:
+			val = np.nan
+			valvar = np.nan
+
+
+	elif x0 > max( x ):
+		if extrapolation:
+			scl = ( y[-1] - y[-2] ) / ( x[-1] - x[-2] )
+			b = y[-1] - x[-1] * scl
+			val = scl * x0 + b
+
+			valvar = 0.
+
+		else:
+			val = np.nan
+			valvar = np.nan
+
+
+	elif x0 in x:
+		val = y[ x==x0 ][0]
+		valvar = yvar[ x==x0 ][0]
+
+
+	else:
+		xlo = max( x[ x < x0 ] )
+		xhi = min( x[ x > x0 ] )
+
+		ylo = y[ x == xlo ][0]
+		yhi = y[ x == xhi ][0]
+		
+		yvarlo = yvar[ x == xlo ][0]
+		yvarhi = yvar[ x == xhi ][0]
+
+		scl = ( x0 - xlo ) / ( xhi - xlo )
+
+		val = ylo + scl * ( yhi - ylo )
+
+		valvar = scl * yvarhi + ( 1 - scl ) * yvarlo
+
+	return val, np.sqrt(valvar)
+
 
 # Fit Line y = A + B * ( x - x0 )
 def fitline( x, y, sig ):
@@ -57,14 +121,6 @@ def fitline( x, y, sig ):
 	det = H11 * H22 - H12**2
 	A = ( C2 * H22 + H12 * C1 ) / det
 	B = ( H11 * C1 + H12 * C2 ) / det
-
-	'''
-	H = [ [ H11, H12 ], [ H12, H22 ] ]
-	C = [ C1, C2 ]
-	Hinv = np.linalg.inv( H )
-
-	A, B = Hinv.dot( C )
-	'''
 
 	Asig = 1. / np.sqrt( H11 )
 	Bsig = 1. / np.sqrt( H22 )
