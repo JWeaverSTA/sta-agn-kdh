@@ -15,13 +15,12 @@ cosmo = cd.set_omega_k_0( cosmo )
 @njit
 def deg2hr( deg ):
 	hr = deg * ( 24. / 360. )
-
 	return hr
 
 # Accretion Disk Spectrum in Magnitudes
-@njit
-def accretion_magspec( wav, wavfid, magfid ):
-	mag = -2.5 * np.log10( ( wav / wavfid )**(-1./3.) ) + magfid
+# Cannot Njit
+def accretion_magspec( wav, fidwav, fidmag = 0. ):
+	mag = -2.5 * np.log10( ( wav / fidwav )**(-1./3.) ) + fidmag
 	return mag
 
 # Accretion Disk Color
@@ -58,21 +57,51 @@ def rest2obswav( wavz, z ):
 	wav = np.array( [ w * ( 1. + z) for w in wavz ] )
 	return wav
 
+# Apparent to absolute magnitude
+def mag2amag( mag, magsig, z ):
+	CoMDist = cd.comoving_distance( z, **cosmo )
+	cterm = - 5 * np.log10( CoMDist ) - 25.
+	return mag + cterm, magsig
+
+# Absolute to apparent magnitude
+def amag2mag( amag, amagsig, z ):
+	CoMDist = cd.comoving_distance( z, **cosmo )
+	cterm = - 5 * np.log10( CoMDist ) - 25.
+	return amag - cterm, amag_sig
+
 # Extinction correction
 # Cannot njit
-def extcorr( intable, extmag_ref, extmag_coeff, verbose = False ):
+def extcorr( intable, extmag_ref, extmag_coeff, verbose = False, filters = None ):
 	if verbose:
 		print 'Extcorr: Corrected extinction'
 
 	table = intable.copy()
-	for colname in extmag_coeff.keys():
+	for i, colname in enumerate( extmag_coeff.keys() ):
 		col = table[colname]
 		coeff = extmag_coeff[colname]
 		extmag = coeff * extmag_ref
 		table[colname] = col + extmag
 
-		if verbose:
-		    print '* %s ... %2.2f mag' %( i, extmag )
+		if filters is None:
+			pass
+		elif verbose:
+		    print '* %s ... %2.2f mag' %( filters[i], extmag )
 
 	return table
 
+# Chemical line plotter
+def chemplot( ax, wavdict, xlo, xhi, ylo, yhi, color = 'k', tcolor = 'k' ):
+	name = np.array( wavdict.keys() )
+	wav = np.array( wavdict.values() )
+	print wav
+	mask = ( ( wav > 0.98 * xlo ) & ( wav < 0.98 * xhi) )
+	print mask
+	ax.vlines( wav[mask], ylo, yhi, colors = color )
+	yrange = yhi - ylo
+	for i in xrange( len( wav[mask] ) ):
+		pwav = wav[mask][i]
+		pname = name[mask][i]
+		ax.text( pwav, yhi +  0.1 * yrange, pname, color = tcolor )
+
+
+	

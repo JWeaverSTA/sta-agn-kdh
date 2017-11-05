@@ -40,6 +40,16 @@ def optscl( x, sig, pfl ):
 
 	return scl, std
 
+# Standard Deviation from model
+def std( x, modx, sig ):
+	dlen = float( len( x ) )
+	var = np.nansum( ( x - modx )**2 / dlen )
+	return np.sqrt( var )
+
+# Chisq
+def chisq( x, modx, sig ):
+	return np.nansum( ( ( x - modx ) / sig )**2 )
+
 # Linear Interpolation
 # Does not provide extrapolated sigma
 def linint( x, y, ysig, x0, extrapolation = False ):
@@ -95,7 +105,7 @@ def linint( x, y, ysig, x0, extrapolation = False ):
 
 
 # Fit Line y = A + B * ( x - x0 )
-def fitline( x, y, sig ):
+def fitline( x, y, sig, orthogonalize = True ):
 
 	# centroids and scales
 	x0 = optavg( x, sig )[0]
@@ -107,9 +117,14 @@ def fitline( x, y, sig ):
 	yscale = abs( ymax - ymin )
 
 	# Hessian Matrix
-	wt = ( yscale / sig )**2
-	xh = ( x - x0 ) / xscale
-	yh = ( y - y0 ) / yscale 
+	if orthogonalize:
+		wt = ( yscale / sig )**2
+		xh = ( x - x0 ) / xscale
+		yh = ( y - y0 ) / yscale 
+	else:
+		wt = 1. / sig**2
+		xh = x
+		yh = y
 
 	H11 = np.nansum( wt )
 	H12 = - np.nansum( xh * wt )
@@ -125,13 +140,23 @@ def fitline( x, y, sig ):
 	Asig = 1. / np.sqrt( H11 )
 	Bsig = 1. / np.sqrt( H22 )
 	
-	# de-scale
-	A = A * yscale + y0
-	Asig = Asig * yscale
-	Bscale = yscale / xscale
-	B = B * Bscale
-	Bsig = Bsig * Bscale
+	if H12 == 0.:
+		ABcov = 0.
+	else:
+		ABcov = 1 / H12
 
-	return A, B, Asig, Bsig, x0
+	p1 = np.sqrt( H11 / det )
+	p2 = np.sqrt( H22 / det )
+	corr =  ( H12 / det ) / ( p1 * p2 )
+
+	if orthogonalize:
+		# de-scale
+		A = A * yscale + y0
+		Asig = Asig * yscale
+		Bscale = yscale / xscale
+		B = B * Bscale
+		Bsig = Bsig * Bscale
+
+	return A, B, Asig, Bsig, ABcov, corr, x0
 
 

@@ -91,10 +91,10 @@ backend      : TkAgg
 #lines.antialiased : True         # render lines in antialiased (no jaggies)
 
 # The three standard dash patterns.  These are scaled by the linewidth.
-#lines.dashed_pattern : 2.8, 1.2
+lines.dashed_pattern : 2.8, 1.8
 #lines.dashdot_pattern : 4.8, 1.2, 0.8, 1.2
-#lines.dotted_pattern : 1.1, 1.1
-#lines.scale_dashes : True
+lines.dotted_pattern : 1.1, 2.1
+lines.scale_dashes : False
 
 #markers.fillstyle: full # full|left|right|bottom|top|none
 
@@ -294,7 +294,7 @@ mathtext.fontset : dejavuserif # Should be 'dejavusans' (default),
 # http://matplotlib.org/api/axes_api.html#module-matplotlib.axes
 #axes.facecolor      : white   # axes background color
 axes.edgecolor      : black   # axes edge color
-axes.linewidth      : 1.3     # edge linewidth
+axes.linewidth      : 1     # edge linewidth
 #axes.grid           : False   # display grid or not
 #axes.titlesize      : large   # fontsize of the axes title
 #axes.titlepad       : 6.0     # pad between axes and title in points
@@ -374,12 +374,12 @@ xtick.top            : True   # draw ticks on the top side
 xtick.bottom         : True   # draw ticks on the bottom side
 xtick.major.size     : 8      # major tick size in points
 xtick.minor.size     : 4      # minor tick size in points
-xtick.major.width    : 1.5   # major tick width in points
-xtick.minor.width    : 1.5    # minor tick width in points
+xtick.major.width    : 1   # major tick width in points
+xtick.minor.width    : 1    # minor tick width in points
 #xtick.major.pad      : 3.5      # distance to major tick label in points
 #xtick.minor.pad      : 3.4      # distance to the minor tick label in points
 #xtick.color          : k      # color of the tick labels
-xtick.labelsize      : 15 # fontsize of the tick labels
+xtick.labelsize      : 10 # fontsize of the tick labels
 xtick.direction      : in    # direction: in, out, or inout
 xtick.minor.visible  : True  # visibility of minor ticks on x-axis
 xtick.major.top      : True   # draw x axis top major ticks
@@ -391,12 +391,12 @@ ytick.left           : True   # draw ticks on the left side
 ytick.right          : True  # draw ticks on the right side
 ytick.major.size     : 8      # major tick size in points
 ytick.minor.size     : 4      # minor tick size in points
-ytick.major.width    : 1.5    # major tick width in points
-ytick.minor.width    : 1.5    # minor tick width in points
+ytick.major.width    : 1    # major tick width in points
+ytick.minor.width    : 1    # minor tick width in points
 #ytick.major.pad      : 3.5      # distance to major tick label in points
 #ytick.minor.pad      : 3.4      # distance to the minor tick label in points
 #ytick.color          : k      # color of the tick labels
-ytick.labelsize      : 15 # fontsize of the tick labels
+ytick.labelsize      : 10 # fontsize of the tick labels
 ytick.direction      : in    # direction: in, out, or inout
 ytick.minor.visible  : True  # visibility of minor ticks on y-axis
 ytick.major.left     : True   # draw y axis left major ticks

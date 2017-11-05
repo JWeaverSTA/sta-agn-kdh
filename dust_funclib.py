@@ -5,6 +5,7 @@
 import numpy as np
 from astropy.io import ascii
 from scipy import interpolate
+from numba import njit
 
 # --- Gordon Interpolation ---
 def smccubic():
@@ -31,7 +32,6 @@ def smccubic():
 	tck = interpolate.splrep( gsx, gsy, w = gse, s = 0, k = k )
 		
 	return tck
-
 
 def lmccubic():
 
@@ -60,6 +60,7 @@ def lmccubic():
 
 
 # --- D FACTOR ---
+@njit
 def d( x, x0, gam ):
   a = ( x*x ) - ( x0*x0 )
   b = x*gam
@@ -68,6 +69,7 @@ def d( x, x0, gam ):
   return d
 
 # --- Fx FACTOR ---
+@njit
 def fx( x ):
   fa = x - 5.9
   faa = fa * fa
@@ -103,7 +105,7 @@ def smc( wav, tck ):
 
   if x < 3.29:
 	
-  	ynew = interpolate.splev( x, tck, der = 0 )
+  	ynew = interpolate.splev( x, tck, 0 )
 		
   	return ynew
 
@@ -149,7 +151,7 @@ def lmc( wav, tck ):
   	
   if x < 3.29:
   
-  	ynew = interpolate.splev( x, tck, der = 0 )
+  	ynew = interpolate.splev( x, tck, 0 )
   	
   	return ynew
 
@@ -208,6 +210,7 @@ def lmcss( wav ):
 
 
 # --- MW LAW ---
+@njit
 def mw( wav ):
 
   ntable = 19
@@ -252,6 +255,7 @@ def mw( wav ):
 
 
 # --- GASKELL LAW ---
+@njit
 def agn(wav):
   
   x = 1E4 / wav
@@ -286,7 +290,7 @@ def drude( wav, c1, c2, c3, c4, ebmv ):
 
 
 
-def dustlaw( wav, tk = None, name = None ):
+def dustlaw( wav, name = None, tk = None ):
 	if name == 'smc':
 		return np.array( [ smc( i, tk ) for i in wav ] )
 	elif name == 'lmc':

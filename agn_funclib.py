@@ -6,6 +6,7 @@
 from __future__ import division
 import numpy as np
 from astropy.table import Table
+from numba import njit
 
 
 # Mask values given logical condition
@@ -39,7 +40,7 @@ def maskval( intable, val, test = 'eq', str_pattern = '_mag', verbose = False ):
 			count += np.sum( mask )
 			mcount[mask] += 1
 
-	rcount = np.sum( mcount > 0 )
+	rcount = np.nansum( mcount > 0 )
 
 	if verbose:
 		pc = count / size * 100.
@@ -60,6 +61,25 @@ def maskval( intable, val, test = 'eq', str_pattern = '_mag', verbose = False ):
 	return table
 
 
+# Remove rows all nan
+def removenan( intable ):
+	remrows = -1 * np.ones( len( intable ) )
+	array = intable.as_array()
+	for i, row in enumerate( array ):
+		counter =  0
+		for val in row:
+			if val != val:
+				counter += 1
+		if counter == len( row ) - 1:
+			remrows[i] = i
+
+	remrows = remrows[ remrows != -1 ]
+	remrows = remrows.astype( int )
+	if len( remrows ) == 0:
+		return None
+	else:
+		return remrows
+
 # Estimate x when lower sig passes y=0 for a set of model
 def estzero( A, Asig, B, Bsig, x0, filters = None ):
 	Avar = Asig**2
@@ -78,8 +98,7 @@ def estzero( A, Asig, B, Bsig, x0, filters = None ):
 	fz = np.nanmax( [ xp, xm ], 0 )
 	mask = np.greater( x, x0 )
 	if mask.sum() > 0:
-		print xm, xp, mask
-		fz[mask] = np.nanmin(  xm, xp, 0 )[mask]
+		fz[mask] = np.nanmin( [ xm, xp], 0 )[mask]
 	sel = fz == np.nanmax( fz )
 
 	fzero = ( fz[ sel ] + x0[ sel ] )[0]
