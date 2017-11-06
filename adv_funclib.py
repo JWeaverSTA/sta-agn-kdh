@@ -108,20 +108,21 @@ def linint( x, y, ysig, x0, extrapolation = False ):
 def fitline( x, y, sig, orthogonalize = True ):
 
 	# centroids and scales
-	x0 = optavg( x, sig )[0]
-	y0 = optavg( y, sig )[0]
-
-	xmin, xmax = np.nanmin( x ), np.nanmax( x )
-	ymin, ymax = np.nanmin( y ), np.nanmax( y )
-	xscale = abs( xmax - xmin )
-	yscale = abs( ymax - ymin )
-
-	# Hessian Matrix
 	if orthogonalize:
+		x0 = optavg( x, sig )[0]
+		y0 = optavg( y, sig )[0]
+
+		xmin, xmax = np.nanmin( x ), np.nanmax( x )
+		ymin, ymax = np.nanmin( y ), np.nanmax( y )
+		xscale = abs( xmax - xmin )
+		yscale = abs( ymax - ymin )
+
 		wt = ( yscale / sig )**2
 		xh = ( x - x0 ) / xscale
 		yh = ( y - y0 ) / yscale 
+
 	else:
+		x0 = 0.
 		wt = 1. / sig**2
 		xh = x
 		yh = y
@@ -134,20 +135,23 @@ def fitline( x, y, sig, orthogonalize = True ):
 	C2 = np.nansum( yh * wt )
 
 	det = H11 * H22 - H12**2
+
 	A = ( C2 * H22 + H12 * C1 ) / det
 	B = ( H11 * C1 + H12 * C2 ) / det
 
-	Asig = 1. / np.sqrt( H11 )
-	Bsig = 1. / np.sqrt( H22 )
-	
-	if H12 == 0.:
+	if orthogonalize:
+		Asig = 1. / np.sqrt( H11 )
+		Bsig = 1. / np.sqrt( H22 )
 		ABcov = 0.
-	else:
-		ABcov = 1 / H12
+		corr = 0.
 
-	p1 = np.sqrt( H11 / det )
-	p2 = np.sqrt( H22 / det )
-	corr =  ( H12 / det ) / ( p1 * p2 )
+	else:
+		Asig = np.sqrt( H22 / det )
+		Bsig = np.sqrt( H11 / det )
+		ABcov = H12 / det 
+		p1 = np.sqrt( H11 / det )
+		p2 = np.sqrt( H22 / det )
+		corr =  ABcov / ( p1 * p2 )
 
 	if orthogonalize:
 		# de-scale

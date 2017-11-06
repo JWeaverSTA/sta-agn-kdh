@@ -381,6 +381,7 @@ while truth_nav not in ('end','exit','q'):
 
 					# Loop over LC
 					numtotal = len( selectdata )
+					nskip = 0
 					for lc_index, num in enumerate( xrange( numtotal ) ):
 						
 						# Get master data info
@@ -597,6 +598,7 @@ while truth_nav not in ('end','exit','q'):
 						# Abandon analysis for object
 						if conabandon:
 							print 'Fitline: analysis abandoned for %i' %lc_id
+							nskip += 1
 							continue
 
 						# Update user
@@ -824,7 +826,7 @@ while truth_nav not in ('end','exit','q'):
 
 							gd_range = gd_mag_max - gd_mag_min
 							ylo4 = gd_mag_min - 0.15 * gd_range
-							yhi4 = gd_mag_max + 0.10 * gd_range
+							yhi4 = gd_mag_min + 0.9 * gd_range
 
 
 							# Ax21 - Model
@@ -945,6 +947,7 @@ while truth_nav not in ('end','exit','q'):
 								ax24.text( 1.01 * xhi34, p_mag[-1], name, color = color )
 
 							# Plot chemical lines
+							'''
 							chemname = np.array( chem.keys() )
 							chemwavz = np.array( chem.values() )
 
@@ -958,7 +961,8 @@ while truth_nav not in ('end','exit','q'):
 								pname = chemname[i]
 								ax24t.text( pwav, ylo4 + 0.1 * gd_range, pname, size = 10,
 											color = 'k', horizontalalignment = 'center' )
-						
+							'''
+
 
 							# Ax25 - Time Sequence
 							ax25.set_title( 'Time Sequence' )
@@ -999,7 +1003,7 @@ while truth_nav not in ('end','exit','q'):
 								L_col = L - L0[i]
 
 								modelev_flux = A[i] * np.ones( elen ) + B[i] * L_col
-								modelevsig_flux = np.sqrt( Avar[i] * np.ones( elen ) + Bvar[i] * L_col )									
+								modelevsig_flux = np.sqrt( Avar[i] * np.ones( elen ) + Bvar[i] * L_col**2 )									
 
 								modelev_flux = modelev_flux[model_mask]
 								modelevsig_flux = modelevsig_flux[model_mask]
@@ -1022,6 +1026,14 @@ while truth_nav not in ('end','exit','q'):
 								# Ax22
 								ax22.errorbar( x = epoch, y = lc_mag_col, yerr = lcsig_mag_col, alpha = 0.8,
 											   fmt = '.', color = color, ms = emarkersize, zorder = - i )
+
+								# Ax24
+								acc_wav = np.linspace( xlo34z, xhi34z )
+								acc_fidmag = disc_mag[i]
+								acc_fidwav = wavz[i]
+								acc_mag = astrotools.accretion_magspec( acc_wav, acc_fidwav ) + acc_fidmag
+								ax24t.plot( acc_wav, acc_mag, color = color, ls = 'dotted' )
+
 
 								# Ax25
 								model_mask = ( lc_flux_col != lc_flux_col )
@@ -1064,31 +1076,35 @@ while truth_nav not in ('end','exit','q'):
 							if dust == 'smc':
 								extmag = dusttools.dustlaw( wavz, name = 'smc', tk = tk_smc )
 								model_extmag = dusttools.dustlaw( model_wavz, name = 'smc', tk = tk_smc )
-								axi = ax31
-								axit = ax31t
-								axi.tick_params( labelbottom='off' )
-								axi.set_ylabel( 'M($\lambda$) (mag)' )
+								if truth_plot == 'M':
+									axi = ax31
+									axit = ax31t
+									axi.tick_params( labelbottom='off' )
+									axi.set_ylabel( 'M($\lambda$) (mag)' )
 							if dust == 'lmc':
 								extmag = dusttools.dustlaw( wavz, name = 'lmc', tk = tk_lmc )
 								model_extmag = dusttools.dustlaw( model_wavz, name = 'lmc', tk = tk_lmc )
-								axi = ax32
-								axit = ax32t
-								axi.tick_params( labelbottom='off' )
-								axi.set_ylabel( 'M($\lambda$) (mag)' )
+								if truth_plot == 'M':
+									axi = ax32
+									axit = ax32t
+									axi.tick_params( labelbottom='off' )
+									axi.set_ylabel( 'M($\lambda$) (mag)' )
 							if dust == 'mw':
 								extmag = dusttools.dustlaw( wavz, name = 'mw' )
 								model_extmag = dusttools.dustlaw( model_wavz, name = 'mw' )
-								axi = ax33
-								axit = ax33t
-								axi.set_ylabel( 'M($\lambda$) (mag)' )
-								axi.set_xlabel( '$\lambda$ = $\lambda_{o}$(1 + z) ($\AA$)' )
+								if truth_plot == 'M':
+									axi = ax33
+									axit = ax33t
+									axi.set_ylabel( 'M($\lambda$) (mag)' )
+									axi.set_xlabel( '$\lambda$ = $\lambda_{o}$(1 + z) ($\AA$)' )
 							if dust == 'agn':
 								extmag = dusttools.dustlaw( wavz, name = 'agn' )
 								model_extmag = dusttools.dustlaw( model_wavz, name = 'agn' )
-								axi = ax34
-								axit = ax34t
-								axi.set_ylabel( 'M($\lambda$) (mag)' )
-								axi.set_xlabel( '$\lambda$ = $\lambda_{o}$(1 + z) ($\AA$)' )
+								if truth_plot == 'M':
+									axi = ax34
+									axit = ax34t
+									axi.set_ylabel( 'M($\lambda$) (mag)' )
+									axi.set_xlabel( '$\lambda$ = $\lambda_{o}$(1 + z) ($\AA$)' )
 
 							# Update user
 							if verbose:
@@ -1102,6 +1118,9 @@ while truth_nav not in ('end','exit','q'):
 																								  y = residuals,
 																								  sig = discsig_mag,
 																								  orthogonalize = False )
+
+							extmag = extmag - w0
+							model_extmag = model_extmag - w0
 
 							# Update user
 							if verbose:
@@ -1141,7 +1160,7 @@ while truth_nav not in ('end','exit','q'):
 						
 						
 							# Plotting
-							if truth_plot:
+							if truth_plot == 'M':
 
 								# Preparation
 								ax_mag_max = np.nanmax( [ disc_amag + discsig_amag,
@@ -1187,27 +1206,27 @@ while truth_nav not in ('end','exit','q'):
 								axit.set_xscale( 'log' )
 
 
-								axit.plot( model_wavz, model_disc_amag, color = 'b' )
+								axit.plot( model_wavz, model_disc_amag, color = 'b', zorder = 2 )
 								axit.fill_between( x = model_wavz,
 												   y1 = model_disc_amag - model_discsig_amag,
 												   y2 = model_disc_amag + model_discsig_amag,
 												   alpha = 0.1,
-												   color = color, zorder = - 10 ) 
+												   color = 'b', zorder = 1 ) 
 
-								axit.plot( model_wavz, model_dered_amag, color = 'r' )
+								axit.plot( model_wavz, model_dered_amag, color = 'r', zorder = 2 )
 								axit.fill_between( x = model_wavz,
 												   y1 = model_dered_amag - model_deredsig_amag,
 												   y2 = model_dered_amag + model_deredsig_amag,
 												   alpha = 0.1,
-												   color = color, zorder = - 10 ) 
+												   color = 'r', zorder = 1 ) 
 
 
 								for i, j in enumerate( filters ):
 									color = wavcolor[j]
-									axi.errorbar( x = wav[i], y = disc_amag[i], yerr = discsig_amag[i], alpha = 0.8,
-												   fmt = '.', color = color, ms = emarkersize, zorder = - i )
-									axi.errorbar( x = wav[i], y = dered_amag[i], yerr = deredsig_amag[i], alpha = 0.8,
-												   fmt = '.', color = color, ms = emarkersize, zorder = -i )
+									axit.errorbar( x = wavz[i], y = disc_amag[i], yerr = discsig_amag[i], alpha = 0.8,
+												   fmt = '.', color = color, ms = emarkersize, zorder = 10 )
+									axit.errorbar( x = wavz[i], y = dered_amag[i], yerr = deredsig_amag[i], alpha = 0.8,
+												   fmt = '.', marker = 's', color = color, ms = 0.5*emarkersize, zorder = 10 )
 
 								axi.text( 0.75, 0.2, 'z = %.2f' %z,  
 										  transform = axi.transAxes, horizontalalignment='left', fontsize = 6 )    
@@ -1257,8 +1276,25 @@ while truth_nav not in ('end','exit','q'):
 
 					# Save output
 					if output:
-						outputtable.write( outputdir + outputfile, format = 'ascii' )
+						ascii.write( outputtable, outputdir + outputfile, format = 'fixed_width' )
 						
 						# Update user
-						if verbose:
-							print 'Output: Saved output table to %s' %( outputdir + outputfile )
+						print 'Output: Saved output table to %s' %( outputdir + outputfile )
+
+					# End of lightcurves
+					print 'End of lightcurves - %i skipped' %( nskip )
+					truth_end = raw_input( 'CLOSE: ' )
+					if truth_end == '':
+						plt.close( 'all' )
+
+				truth_nav = 0
+				truth_menu = 0
+				# Convert output back
+				if output == True:
+					output = 'ON'
+				if output == False:
+					output = 'OFF'
+				if verbose == True:
+					verbose = 'ON'
+				if verbose == False:
+					verbose = 'OFF'	
