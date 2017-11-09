@@ -43,7 +43,7 @@ def optscl( x, sig, pfl ):
 # Standard Deviation from model
 def std( x, modx, sig ):
 	dlen = float( len( x ) )
-	var = np.nansum( ( x - modx )**2 / dlen )
+	var = np.nansum( ( x - modx )**2 ) / ( dlen -1 )
 	return np.sqrt( var )
 
 # Chisq

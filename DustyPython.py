@@ -21,7 +21,7 @@ lightcurvedir = 'QSO_S82/'
 masterdir = 'QSO_Master/'
 masterfile = 'DB_QSO_S82.dat'
 outputdir = 'Output/'
-outputfile = 'DustyOutput.trial.cat'
+outputfile = 'DustyOutput.junk.cat'
 outcolnamesfile = 'colnames.txt'
 
 # SHOULD INCLUDE WARNING CHECK THAT OUTPUT FILE DOES NOT ALREADY EXIST!
@@ -366,6 +366,8 @@ while truth_nav not in ('end','exit','q'):
 						ax32t = ax32.twiny()
 						ax33t = ax33.twiny()
 						ax34t = ax34.twiny()
+
+						ax22.invert_yaxis()
 					
 					# Convert output
 					if output == 'ON':
@@ -860,6 +862,7 @@ while truth_nav not in ('end','exit','q'):
 									   horizontalalignment = 'center', verticalalignment = 'center' )
 
 
+
 							# Ax23 - Spectral Components
 							ax23.set_title( 'Spectral Components', y=1.1)
 							ax23.set_xlabel( '$\lambda$ = $\lambda_{o}$(1 + z) ($\AA$)' )
@@ -1057,6 +1060,7 @@ while truth_nav not in ('end','exit','q'):
 												   color = color, zorder = - 10 )	
 
 							# Update plots
+
 							fig2.subplots_adjust( top = 0.95, bottom = 0.05, left = 0.08, right = 0.95, hspace = 0.5, wspace = 0.3 )
 						  
 							fig2.canvas.draw_idle() 
@@ -1268,7 +1272,11 @@ while truth_nav not in ('end','exit','q'):
 								print 'Output: Updated output table for %s' %(outputfile)
 
 						if truth_plot == 'M':
-							raw_input( '...' )
+							print ''
+							truth_cont = raw_input( 'CONTINUE: ' )
+							if truth_cont != '':
+								plt.close( 'all' )
+								break
 							[ i.clear() for i in ( ax21, ax22, ax23, ax24, ax25, ax26 ) ]
 							[ i.clear() for i in ( ax23t, ax24t ) ]
 							[ i.clear() for i in ( ax31, ax32, ax33, ax34 ) ]
@@ -1282,6 +1290,7 @@ while truth_nav not in ('end','exit','q'):
 						print 'Output: Saved output table to %s' %( outputdir + outputfile )
 
 					# End of lightcurves
+					print ''
 					print 'End of lightcurves - %i skipped' %( nskip )
 					truth_end = raw_input( 'CLOSE: ' )
 					if truth_end == '':
