@@ -84,6 +84,7 @@ dat = dat[diskmag_i_mask]
 corrmag_i_mask = dat['i_dered_smc_amag'] == dat['i_dered_smc_amag']
 dat = dat[corrmag_i_mask]
 
+cbins = np.linspace( 0, 200, 100 )
 
 # Mask for chosen law
 for law, col in files: 
@@ -96,7 +97,7 @@ for law, col in files:
     chisq_cum = chisq_cum / float( chisq.size )
 
     # Plot
-    ax11.hist( chisq[chisq < 200], bins = 100, histtype = 'step', normed = True, color = col )
+    ax11.hist( chisq[chisq < 200], bins = cbins, histtype = 'step', normed = True, color = col )
     ax11.plot( chisq_sort, chisq_cum, color = col )
 
 

@@ -6,10 +6,14 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from astropy.io import ascii
 
+
+
 # Read in data
 posf = '.txt'
 files = [ ['smc','cyan'], ['lmc', 'r'], ['mw','g'], ['gask', 'purple' ]  ]
 wav = np.array([3543., 4770., 6231., 7625., 9134.])
+
+dcolor = ( 'royalblue', 'orangered', 'forestgreen', 'blueviolet' )
 
 dat = ascii.read( 'Output/DustyOutput.trial.cat', format = 'fixed_width' )
 
@@ -23,17 +27,8 @@ textsize = 15
 fig1, ( ax11 ) = plt.subplots()
 
 ax11.set_xlabel( 'E(B-V)', fontsize = labelsize )
-ax11.set_ylabel( 'L$_{2400\AA}$ erg s$^{-1}$', fontsize = labelsize )
+ax11.set_ylabel( 'Log $\\nu$L$_{\\nu}$(2400$\AA$) (erg s$^{-1}$)', fontsize = labelsize )
 
-
-ax11.minorticks_on()
-ax11.tick_params( axis = 'both',
-                      direction = 'in',
-                      width = 2,
-                      length = 6 )
-ax11.tick_params( which = 'minor',
-                      axis = 'both',
-                      direction = 'in',)
 
 
 
@@ -41,8 +36,7 @@ fig1.subplots_adjust( hspace = 0, wspace = 0.2,
                       left = 0.15, right = 0.98,
                       top = 0.95, bottom = 0.1 )
 
-colormap = plt.cm.gnuplot2
-colormap.set_under('w')
+
 
 
 # Bouding box values
@@ -103,15 +97,28 @@ mstar = dat['fidmag_smc']
 Lsun = 3.9E33
 Lfid = Lsun * 10**( ( 4.77 - mstar ) / 2.5 )
 
+Lfid = (3E8/2400E-10) * Lfid
 
 # Plot
+colormap = plt.cm.magma_r
+colormap.set_under('w')
+ylo = 58.8
+yhi = 61.1
+xbins = np.linspace( -0.1,0.7,60)
+ybins = np.linspace( ylo, yhi, 30 )
 H, xedges, yedges = np.histogram2d(
-             ebmv, np.log10(Lfid), bins = (50,50),
-             range = ( ( -0.2, 1 ), (43.5, 46.5 ) ) )
-ax11.imshow( H.T, extent = (xedges[0], xedges[-1], yedges[0], yedges[-1]),
-             interpolation = 'gaussian', vmin = 2, cmap = colormap, aspect = 1/5. )
-ax11.vlines( 0, 43.5, 46.5,
-             colors='r',linestyles='--' )
+             ebmv, np.log10(Lfid), bins = (xbins,ybins) )
+H_hiz, xedges_hiz, yedges_hiz = np.histogram2d(
+             ebmv[redshift > 2], np.log10(Lfid[redshift > 2]), bins = (xbins,ybins) )
+#ax11.set_yscale('log')
+#ax11.set_ylim( 10**ylo, 10**yhi )
+ax11.pcolormesh( xedges, yedges, H.T, cmap = colormap,
+                 vmin = 2 )
+ax11.contour( H_hiz.T, colors = 'w' , levels = [5, 15], extent = [ xedges[0], xedges[-1],
+                                           yedges[0], yedges[-1] ] )
+#ax11.pcolormesh( xedges_hiz, yedges_hiz, H_hiz.T, cmap = colormap, alpha = 0.5, vmin = 4 )
+#ax11.vlines( 0, 10**ylo, 10**yhi,
+#             colors='r',linestyles='--' )
 
 fig1.subplots_adjust( left = 0.1 )
 # Spline optavg

@@ -71,7 +71,7 @@ for i in filt:
 
 
 #----
-plt.ioff()
+plt.ion()
 
 lum = np.array( [ [ dat[ i + '_dered_lum'][j] for i in filt ] for j in range( dalen ) ] )
 lumsig = np.array( [ [ dat[i + '_dered_lerr'][j] for i in filt ] for j in range( dalen ) ] )
@@ -93,7 +93,7 @@ dlen = nkept
 print 'NaN masked - removed: ', nlost
 '''
 # Setup figure
-fig1 = plt.figure( figsize = (15,10), dpi = 300 )
+fig1 = plt.figure( figsize = (15,10) )
 ax11 = fig1.add_subplot(111)
 ax11.set_xlabel('Rest Wavelength ($\AA$)', fontsize = 15)
 ax11.set_ylabel('Object', fontsize = 15)
@@ -181,31 +181,21 @@ ax11.vlines( emlines.values(), 0, dlen,
 			 color = 'k', alpha = 0.6, linestyles = 'dotted' )
 for i in range(len(emlines)):
 	ax11.text( emlines.values()[i], 1.02*dlen, emlines.keys()[i],
-			   fontsize = 10, alpha = 1, horizontalalignment='center' )
+			   alpha = 1, horizontalalignment='center' )
 
 zloc = np.array( (1.,2.,3.) )
 znum = [ advtools.linint( zsort, np.arange(dlen), 0. * zsort, zloc[i] )[0] for i in xrange( len( zloc ) ) ]	
 znum = np.round( znum )
 
 for i in range( len( znum ) ):
-	ax11.hlines( znum[i], xlo, xlo + 0.91 * (xhi - xlo),
+	ax11.hlines( znum[i], xlo, xlo + 0.87 * (xhi - xlo),
 				 color = 'k', linestyles = 'dotted', alpha = 0.6)
-	ax11.text( xlo + 0.95 * (xhi - xlo), znum[i], '$z=%i$'%zloc[i], 
-				fontsize = 10, verticalalignment = 'center', horizontalalignment = 'center' )
+	ax11.text( xlo + 0.93 * (xhi - xlo), znum[i], '$z=%i$'%zloc[i], 
+				verticalalignment = 'center', horizontalalignment = 'center' )
 
-fig1.subplots_adjust( left = 0.05, right = 0.97, bottom = 0.05, top = 0.9 )
+fig1.subplots_adjust( left = 0.05, right = 0.97, bottom = 0.05, top = 0.95 )
 
-ax11.minorticks_on()
-ax11.tick_params( axis = 'both',
-                  direction = 'in',
-                  width = 2,
-                  right = 'on',
-                  length = 6 )
-ax11.tick_params( which = 'minor',
-                  axis = 'both',
-                  right = 'on',
-                  direction = 'in',)
-fig1.suptitle( pname + ' | N = ' + str(dlen), y = 0.98, fontsize = 15 )
+#fig1.suptitle( pname + ' | N = ' + str(dlen), y = 0.98, fontsize = 15 )
 
 ax11.set_xscale('log')
 ax11.xaxis.set_ticks( [1000,2000,3000,4000,5000,6000,7000] )

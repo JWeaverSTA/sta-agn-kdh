@@ -21,12 +21,12 @@ lightcurvedir = 'QSO_S82/'
 masterdir = 'QSO_Master/'
 masterfile = 'DB_QSO_S82.dat'
 outputdir = 'Output/'
-outputfile = 'DustyOutput.junk.cat'
+outputfile = 'DustyOutput.powerlaw.n.1.2.cat'
 outcolnamesfile = 'colnames.txt'
 
 # SHOULD INCLUDE WARNING CHECK THAT OUTPUT FILE DOES NOT ALREADY EXIST!
 
-
+powerlaw = 1.2
 fidwav = 2400. # AA
 conlimit = 4
 concrit = 1E-10
@@ -46,6 +46,7 @@ convplotter = False
 # Dustlaws
 dustlaws = ( 'smc', 'lmc', 'mw', 'agn' )
 dustlaws = np.array( dustlaws )
+dcolor = ( 'royalblue', 'orangered', 'forestgreen', 'blueviolet' )
 # Filters (in order)
 filters = ( 'u', 'g', 'r', 'i', 'z' )
 filters = np.array( filters )
@@ -101,8 +102,8 @@ irahi = 24.
 ideclo = -1.27
 idechi = 1.27
 inumlook = 0
-ioutput = 'OFF'
-iverbose = 'ON'
+ioutput = 'ON' #'OFF'
+iverbose = 'OFF' #'ON'
 
 # Colors
 gi_color = masterdata['g'] - masterdata['i']
@@ -262,55 +263,64 @@ while truth_nav not in ('end','exit','q'):
 
 					# Create Figure 1
 					fig1 = plt.figure( figsize = ( 11, 6 ) )
-					fig1.suptitle( '%i | SDSS Quasars' % len( selectdata ) )
+					#fig1.suptitle( '%i | SDSS Quasars' % len( selectdata ) )
 					nbins = [50, 50]
+					cmap = plt.cm.magma_r
+					cmap.set_under('w')
 
-					gi_model = astrotools.accretion_color( wav[1], wav[3] )
+					gi_model = astrotools.accretion_color( wav[1], wav[3], powerlaw = powerlaw )
 
 					# ax1: Redshift-Colour
 					ax11 = fig1.add_subplot( 221 )
 					ax11.hist2d( selectdata['reds'], selectdata['g'],
 								 range = [ [ izlo, izhi ], [ igbrt, igfnt ] ],
-								 bins = nbins )
+								 bins = nbins, cmap = cmap, cmin = 2 )
 					ax11.set_ylim( igfnt, igbrt )
 					ax11.set_xlim( izlo, izhi )
-					ax11.set_xlabel( 'redshift z' )
-					ax11.set_ylabel( 'AB(g) (mag)' )
+					ax11.set_xlabel( 'Redshift z' )
+					ax11.set_ylabel( 'M$_{AB}$(g) (mag)' )
 
 					# ax2 : Colour-Magnitude diagram
 					ax12 = fig1.add_subplot( 222 )
 					ax12.hist2d( selectdata['g'] - selectdata['i'], selectdata['g'],
 								 range = [ [ icblu, icred ], [ igbrt, igfnt ] ],
-								 bins = nbins )
+								 bins = nbins, cmap = cmap, cmin = 2 )
 					ax12.vlines( gi_model, igfnt, igbrt, colors='r', linestyles='--')
 					ax12.set_ylim( igfnt, igbrt )
 					ax12.set_xlim( icblu, icred )
-					ax12.set_xlabel( 'AB(g-i) (mag)' )
-					ax12.set_ylabel( 'AB(g) (mag)' )
+					ax12.set_xlabel( 'M$_{AB}$(g-i) (mag)' )
+					ax12.set_ylabel( 'M$_{AB}$(g) (mag)' )
 
 					# ax3 : Redshift-Colour diagram
 					ax13 = fig1.add_subplot( 223 )
 					ax13.hist2d( selectdata['reds'], selectdata['g'] - selectdata['i'],
 								 range = [ [ izlo, izhi ], [ icblu, icred ] ],
-								 bins = nbins )
-					ax13.hlines( gi_model, izlo, izhi, colors='r', linestyles='--' )
+								 bins = nbins, cmap = cmap, cmin = 2 )
+					ax13.hlines( gi_model, izlo, izhi, colors='r', linestyles='--', label = 'F$_{\\nu}$ ~ $\\nu^{1/3}$' )
 					ax13.set_ylim( icred, icblu )
 					ax13.set_xlim( izlo, izhi ) 
-					ax13.set_ylabel( 'AB(g-i) (mag)' )
-					ax13.set_xlabel( 'redshift z' )
+					ax13.set_ylabel( 'M$_{AB}$(g-i) (mag)' )
+					ax13.set_xlabel( 'Redshift z' )
+					ax13.legend( loc = 'upper right' )
 
 					# ax4 : RA-Dec diagram
 					ax14 = fig1.add_subplot( 224 )
-					ax14.hist2d( selectdata['ra'], selectdata['dec'],
-								 range = [ [ iralo, irahi ], [ ideclo, idechi ] ],
-								 bins = nbins )
+					# this is quickly coded - should make general!
+					rasel = selectdata['ra']
+					rasel[rasel > 5] = rasel[rasel > 5] - irahi
+					rabinlo, rabinhi = rasel.min(), rasel.max()
+					ax14.hist2d( rasel, selectdata['dec'],
+								 range = [ [ rabinlo, rabinhi ], [ ideclo, idechi ] ],
+								 bins = (100,50), cmap = cmap, cmin = 1 )
+					#ax14.scatter( rasel, selectdata['dec'], c = cmap.colors[100], alpha = 0., s = 1 )
 					ax14.set_ylim( ideclo, idechi )
-					ax14.set_xlim( iralo, irahi )
+					ax14.set_xlim( rabinlo, rabinhi )
 					ax14.set_ylabel( 'Dec (deg)' )
 					ax14.set_xlabel( 'RA (h)' )
 
 					# Must specifty layout POST plot
-					fig1.tight_layout( rect=[0,0,1,0.9] )
+					fig1.subplots_adjust( left = 0.07, bottom = 0.08,
+					                      right = 0.99, top = 0.99, hspace = 0.3 )
 
 					# Draw figure
 					fig1.canvas.draw_idle()
@@ -758,7 +768,8 @@ while truth_nav not in ('end','exit','q'):
 
 						# Calculate accretion spectrum
 						acc_amag = astrotools.accretion_magspec( wav = wavz,
-																fidwav = fidwav )
+																fidwav = fidwav,
+																powerlaw = powerlaw )
 						residuals = disc_amag - acc_amag
 
 						# Update user
@@ -857,7 +868,7 @@ while truth_nav not in ('end','exit','q'):
 							# Ax22 - Lightcurve
 							ax22.set_title( 'Lightcurve' )
 							ax22.set_xlabel( 'MJD' )
-							ax22.set_ylabel( 'M($\lambda$) (mag)')
+							ax22.set_ylabel( 'M$_{AB}$($\lambda$) (mag)')
 							ax22.text( 0.05, 1.07, '(b)', transform = ax22.transAxes,
 									   horizontalalignment = 'center', verticalalignment = 'center' )
 
@@ -866,11 +877,11 @@ while truth_nav not in ('end','exit','q'):
 							# Ax23 - Spectral Components
 							ax23.set_title( 'Spectral Components', y=1.1)
 							ax23.set_xlabel( '$\lambda$ = $\lambda_{o}$(1 + z) ($\AA$)' )
-							ax23.set_ylabel( 'M($\lambda$) (mag)' )
+							ax23.set_ylabel( 'M$_{AB}$($\lambda$) (mag)' )
 							ax23.set_xscale( 'log' )
 							ax23.xaxis.set_major_formatter( ScalarFormatter() )
 							ax23.xaxis.set_minor_formatter( ScalarFormatter() )
-							ax23.text( 0.05, 1.07, '(c)', transform = ax23.transAxes,
+							ax23.text( 0.05, 1.17, '(c)', transform = ax23.transAxes,
 									   horizontalalignment = 'center', verticalalignment = 'center' )
 
 							ax23t.set_xlim( xlo34z, xhi34z )
@@ -918,11 +929,11 @@ while truth_nav not in ('end','exit','q'):
 							# Ax24 - Gal-Disc
 							ax24.set_title( 'Galaxy-Disc Separation', y=1.1 )
 							ax24.set_xlabel( '$\lambda$ = $\lambda_{o}$(1 + z) ($\AA$)' )
-							ax24.set_ylabel( 'M($\lambda$) (mag)' )
+							ax24.set_ylabel( 'M$_{AB}$($\lambda$) (mag)' )
 							ax24.set_xscale( 'log')
 							ax24.xaxis.set_major_formatter( ScalarFormatter() )
 							ax24.xaxis.set_minor_formatter( ScalarFormatter() )
-							ax24.text( 0.05, 1.07, '(d)', transform = ax24.transAxes,
+							ax24.text( 0.05, 1.17, '(d)', transform = ax24.transAxes,
 									   horizontalalignment = 'center', verticalalignment = 'center' )
 
 							ax24t.set_xlim( xlo34z, xhi34z )
@@ -1034,7 +1045,7 @@ while truth_nav not in ('end','exit','q'):
 								acc_wav = np.linspace( xlo34z, xhi34z )
 								acc_fidmag = disc_mag[i]
 								acc_fidwav = wavz[i]
-								acc_mag = astrotools.accretion_magspec( acc_wav, acc_fidwav ) + acc_fidmag
+								acc_mag = astrotools.accretion_magspec( acc_wav, acc_fidwav, powerlaw = powerlaw ) + acc_fidmag
 								ax24t.plot( acc_wav, acc_mag, color = color, ls = 'dotted' )
 
 
@@ -1085,6 +1096,7 @@ while truth_nav not in ('end','exit','q'):
 									axit = ax31t
 									axi.tick_params( labelbottom='off' )
 									axi.set_ylabel( 'M($\lambda$) (mag)' )
+									pdcolor = dcolor[0]
 							if dust == 'lmc':
 								extmag = dusttools.dustlaw( wavz, name = 'lmc', tk = tk_lmc )
 								model_extmag = dusttools.dustlaw( model_wavz, name = 'lmc', tk = tk_lmc )
@@ -1093,6 +1105,7 @@ while truth_nav not in ('end','exit','q'):
 									axit = ax32t
 									axi.tick_params( labelbottom='off' )
 									axi.set_ylabel( 'M($\lambda$) (mag)' )
+									pdcolor = dcolor[1]
 							if dust == 'mw':
 								extmag = dusttools.dustlaw( wavz, name = 'mw' )
 								model_extmag = dusttools.dustlaw( model_wavz, name = 'mw' )
@@ -1101,6 +1114,7 @@ while truth_nav not in ('end','exit','q'):
 									axit = ax33t
 									axi.set_ylabel( 'M($\lambda$) (mag)' )
 									axi.set_xlabel( '$\lambda$ = $\lambda_{o}$(1 + z) ($\AA$)' )
+									pdcolor = dcolor[2]
 							if dust == 'agn':
 								extmag = dusttools.dustlaw( wavz, name = 'agn' )
 								model_extmag = dusttools.dustlaw( model_wavz, name = 'agn' )
@@ -1109,6 +1123,7 @@ while truth_nav not in ('end','exit','q'):
 									axit = ax34t
 									axi.set_ylabel( 'M($\lambda$) (mag)' )
 									axi.set_xlabel( '$\lambda$ = $\lambda_{o}$(1 + z) ($\AA$)' )
+									pdcolor = dcolor[3]
 
 							# Update user
 							if verbose:
@@ -1145,7 +1160,7 @@ while truth_nav not in ('end','exit','q'):
 
 
 							# Calculate std, chisq/N
-							mod_dered_amag = astrotools.accretion_magspec( wavz, fidwav ) + fidmag
+							mod_dered_amag = astrotools.accretion_magspec( wavz, fidwav, powerlaw = powerlaw ) + fidmag
 							std = advtools.std( dered_amag, mod_dered_amag, deredsig_amag )
 							chisq = advtools.chisq( dered_amag, mod_dered_amag, deredsig_amag )
 							reduced_chisq = chisq / 5.
@@ -1173,10 +1188,10 @@ while truth_nav not in ('end','exit','q'):
 														   dered_amag - deredsig_amag ] )
 
 								ax_range = ax_mag_max - ax_mag_min
-								ylo = ax_mag_min - 0.10 * ax_range
+								ylo = ax_mag_min - 0.20 * ax_range
 								yhi = ax_mag_max + 0.10 * ax_range
 
-								model_acclaw = astrotools.accretion_magspec( model_wavz, fidwav )
+								model_acclaw = astrotools.accretion_magspec( model_wavz, fidwav, powerlaw = powerlaw )
 								model_disc_amag = model_acclaw + fidmag + model_extmag * ebmv
 								model_discsig_amag = np.sqrt( model_extmag**2 * ebmvsig**2 + fidmagsig**2 + 2 * model_extmag * covar )
 								model_dered_amag = model_acclaw + fidmag
@@ -1187,14 +1202,14 @@ while truth_nav not in ('end','exit','q'):
 								chemwavz = np.array( chem.values() )
 
 								mask = ( ( chemwavz > 1.07 * xloz ) & ( chemwavz < 0.93 * xhiz ) )
-								axit.vlines( chemwavz[mask], ylo + 0.15 * ax_range, yhi,
+								axit.vlines( chemwavz[mask], ylo + 0.18 * ax_range, yhi,
 											 colors = 'k', linestyles = 'dotted', zorder = 0 )
 								chemwavz = chemwavz[mask]
 								chemname = chemname[mask]
 								for i in xrange( len( chemwavz ) ):
 									pwav = chemwavz[i]
 									pname = chemname[i]
-									axit.text( pwav, ylo + 0.1 * ax_range, pname, size = 10,
+									axit.text( pwav, ylo + 0.12 * ax_range, pname, size = 10,
 												color = 'k', horizontalalignment = 'center' )
 
 
@@ -1210,19 +1225,19 @@ while truth_nav not in ('end','exit','q'):
 								axit.set_xscale( 'log' )
 
 
-								axit.plot( model_wavz, model_disc_amag, color = 'b', zorder = 2 )
+								axit.plot( model_wavz, model_disc_amag, color = 'k', zorder = 2 )
 								axit.fill_between( x = model_wavz,
 												   y1 = model_disc_amag - model_discsig_amag,
 												   y2 = model_disc_amag + model_discsig_amag,
 												   alpha = 0.1,
-												   color = 'b', zorder = 1 ) 
+												   color = 'k', zorder = 1 ) 
 
-								axit.plot( model_wavz, model_dered_amag, color = 'r', zorder = 2 )
+								axit.plot( model_wavz, model_dered_amag, color = pdcolor, zorder = 2 )
 								axit.fill_between( x = model_wavz,
 												   y1 = model_dered_amag - model_deredsig_amag,
 												   y2 = model_dered_amag + model_deredsig_amag,
 												   alpha = 0.1,
-												   color = 'r', zorder = 1 ) 
+												   color = pdcolor, zorder = 1 ) 
 
 
 								for i, j in enumerate( filters ):
@@ -1232,12 +1247,12 @@ while truth_nav not in ('end','exit','q'):
 									axit.errorbar( x = wavz[i], y = dered_amag[i], yerr = deredsig_amag[i], alpha = 0.8,
 												   fmt = '.', marker = 's', color = color, ms = 0.5*emarkersize, zorder = 10 )
 
-								axi.text( 0.75, 0.2, 'z = %.2f' %z,  
-										  transform = axi.transAxes, horizontalalignment='left', fontsize = 6 )    
-								axi.text( 0.75, 0.13, '%s | $\chi^{2}_{N}$ = %.2f'%(dust.swapcase(),reduced_chisq),
-										  transform = axi.transAxes, horizontalalignment='left', fontsize = 6  )
-								axi.text( 0.75, 0.06, 'E(B-V) = %.2f$\pm$%.2f'%(ebmv,ebmvsig),
-										  transform = axi.transAxes, horizontalalignment='left', fontsize = 6  )
+								axi.text( 0.7, 0.2, 'z = %.2f' %z,  
+										  transform = axi.transAxes, horizontalalignment='left', fontsize = 7 )    
+								axi.text( 0.7, 0.13, '%s | $\chi^{2}_{N}$ = %.2f'%(dust.swapcase(),reduced_chisq),
+										  transform = axi.transAxes, horizontalalignment='left', fontsize = 7  )
+								axi.text( 0.7, 0.06, 'E(B-V) = %.2f$\pm$%.2f'%(ebmv,ebmvsig),
+										  transform = axi.transAxes, horizontalalignment='left', fontsize = 7  )
 				
 
 								if dust in ( 'mw', 'agn' ):

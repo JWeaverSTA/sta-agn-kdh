@@ -11,6 +11,7 @@ from matplotlib.ticker import ScalarFormatter, NullFormatter
 
 showplot = False # DO NOT CHANGE - VERY BROKEN!
 
+pwrlaw = 2/3.
 
 # Parameters
 dustlaw = 'smc' # make multiple composites?
@@ -36,14 +37,16 @@ emlines = { 'Ly$_{\infty}$'  : 912.00,
 N = 1
 
 # Read in data
-dat = ascii.read( 'Output/DustyOutput.trial.cat', format = 'fixed_width' )
+dat = ascii.read( 'Output/DustyOutput.powerlaw.1.3.cat', format = 'fixed_width' )
+
+outputname = 'composite_output.mean.txt'
 
 z = dat['reds']
 dalen = len( z )
 
 wavz = np.array( [ astrotools.obs2restwav( wav, z[i] ) for i in xrange( len( z ) ) ] )
-dered_amag = np.array( [ [ dat[j][i+'_dered_'+dustlaw+'_amag'] for i in filt ] for j in xrange(dalen) ] )
-dered_amerr = np.array( [ [ dat[j][i+'_dered_'+dustlaw+'_amerr'] for i in filt ] for j in xrange(dalen) ] )
+dered_amag = np.array( [ [ dat[j][i+'_mean_amag'] for i in filt ] for j in xrange(dalen) ] )
+dered_amerr = np.array( [ [ dat[j][i+'_mean_amerr'] for i in filt ] for j in xrange(dalen) ] )
 
 lum, lumsig = astrotools.amag2lum( dered_amag, dered_amerr )
 
@@ -141,7 +144,7 @@ count = 0
 #figt,axt = plt.subplots()
 fdiff = 99.
 ln_f_sig = 1.
-while fdiff > 1E-3: #np.mean( ln_f_sig ):
+while fdiff > 1E-5: #np.mean( ln_f_sig ):
 
 	# Save old f
 	f_old = f
@@ -199,8 +202,8 @@ while fdiff > 1E-3: #np.mean( ln_f_sig ):
 
 		Nbin_contrib[i] = np.sum( ~ np.isnan( hold_intavg ) )
 		Lmod_avg[i], Lmod_sig[i] = advtools.optavg( hold_intavg, hold_intsig )
-		dist_sig = advtools.std(hold_intavg, Lmod_avg[i], hold_intsig )
-		Lmod_psig[i] = np.sqrt( Lmod_sig[i]**2 + dist_sig**2 )
+		#dist_sig = advtools.std(hold_intavg, Lmod_avg[i], hold_intsig )
+		Lmod_psig[i] = Lmod_sig[i] #np.sqrt( Lmod_sig[i]**2  + dist_sig**2 )
 
 	if showplot:
 		ax11.plot( wavgrid, Lmod_avg, 'navy' , zorder = 10)
@@ -217,8 +220,11 @@ while fdiff > 1E-3: #np.mean( ln_f_sig ):
 
 # Quick chisq 
 pwavz = wavz.flatten()
-intmodel = advtools.linint( wavgrid, Lmod_avg, pwavz )
+plum = np.array( [ lum[m]/f[m] for m in range(len(lum)) ] )
+plumsig = np.array( [ lumsig[m]/f[m] for m in range( len(lum )) ] )
+intmodel = np.array( [ advtools.linint( wavgrid, Lmod_avg, Lmod_sig, i )[0] for i in pwavz ] )
 chisq_total = advtools.chisq( plum.flatten(), intmodel, plumsig.flatten() )
+reduced_chisq_total = chisq_total / float( len( plum.flatten() ) )
 
 plt.close('all')
 
@@ -229,7 +235,7 @@ fig1, ( ( ax11), (ax12), (ax13) ) = plt.subplots( nrows = 3, ncols = 1, figsize 
 ax11.set_yscale('log')
 ax11.set_xscale('log')
 ylo = 0.9E30
-yhi = 2.6E30
+yhi = 3.5E30
 xlo = 700 #wavgrid[0]
 xhi = 7600 #wavgrid[-1]
 ax11.set_ylim( ylo, yhi )
@@ -249,7 +255,7 @@ fidwav = 2400.
 wcalc = abs( wavgrid - fidwav )
 Lfid = Lmod_avg[ wcalc == min( wcalc ) ]
 fidmag = astrotools.lum2amag( Lfid, 0. )[0]
-accmag = astrotools.accretion_magspec( wavgrid, fidwav ) + fidmag
+accmag = astrotools.accretion_magspec( wavgrid, fidwav, pwrlaw ) + fidmag
 lumt, _ = astrotools.amag2lum( accmag, 0. )
 lumt = lumt.flatten()
 ax11.plot( wavgrid, Lmod_avg, 'navy' , zorder = 10, label = 'Mean disc')
@@ -298,7 +304,7 @@ fig1.subplots_adjust( hspace = 0. )
 
 
 output = Table( data = [dat['dbID'], ln_f], names = ['dbID', 'scl'] )
-ascii.write( output, 'composite_output.txt', format = 'fixed_width')
+ascii.write( output, outputname, format = 'fixed_width')
 
 
 

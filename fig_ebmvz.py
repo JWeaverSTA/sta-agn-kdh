@@ -50,6 +50,6 @@ for j,i in enumerate( ( nodust, lodust, hidust ) ):
 
 	ax.plot( bin_edges, phist, marker = 's', label = names[j], c = color[j] )
 
-ax.legend(loc=1)
+ax.legend(loc=7)
 ax.set_xlim(0,1.02*max(z))
 

@@ -31,8 +31,8 @@ ax11.set_ylabel( 'CDF', fontsize = labelsize )
 ax11.minorticks_on()
 
 fig1.subplots_adjust( hspace = 0, wspace = 0.2,
-                      left = 0.1, right = 0.98,
-                      top = 0.95, bottom = 0.1 )
+                      left = 0.08, right = 0.98,
+                      top = 0.95, bottom = 0.12 )
 
 colormap = plt.cm.Blues
 
@@ -87,14 +87,17 @@ for law, col in files:
     ebmv_cum = np.array( [ len( ebmv_sort[0:ii] ) for ii in range( ebmv.size ) ] ) / float( ebmv.size )
     #ebmv_cum = ebmv_cum / float( ebmv.size )
 
+    lawname = law.upper()
+
     # Plot
-    ax11.hist( ebmv, bins = bins, histtype = 'step', normed = True, color = col )
-    ax11.plot( ebmv_sort, 3.5 *  ebmv_cum, color = col )
+    ax11.hist( ebmv, bins = bins, histtype = 'step', normed = True, color = col, label = None )
+    ax11.plot( ebmv_sort, 3.5 *  ebmv_cum, color = col, label = lawname )
 
 # Vline
 ax11.vlines( 0, 0, 3.5,
              colors='k',linestyles='--' )
              
+ax11.legend()             
 
 # Tweak frames
 ax11.set_xlim( -0.5, 1.5 )

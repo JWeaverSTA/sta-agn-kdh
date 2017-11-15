@@ -21,14 +21,14 @@ def deg2hr( deg ):
 
 # Accretion Disk Spectrum in Magnitudes
 # Cannot Njit
-def accretion_magspec( wav, fidwav, fidmag = 0. ):
-	mag = -2.5 * np.log10( ( wav / fidwav )**(-1./3.) ) + fidmag
+def accretion_magspec( wav, fidwav, fidmag = 0., powerlaw = 1/3. ):
+	mag = -2.5 * np.log10( ( wav / fidwav )**( - powerlaw ) ) + fidmag
 	return mag
 
 # Accretion Disk Color
 @njit
-def accretion_color( wav1, wav2 ):
-	color = - 2.5 * ( - 1. / 3. ) * np.log10( wav1 / wav2 )
+def accretion_color( wav1, wav2, powerlaw = 1/3. ):
+	color = - 2.5 * ( - powerlaw ) * np.log10( wav1 / wav2 )
 	return color
 
 # Magnitude (AB) to Flux (mJy)
