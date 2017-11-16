@@ -27,7 +27,7 @@ emlines = { 'Ly$_{\infty}$'  : 912.00,
 	 'H$_{\\alpha}$'  : 6562.80}
 
 
-dat = ascii.read( 'Output/DustyOutput.powerlaw.1.3.cat', format = 'fixed_width' )
+dat = ascii.read( 'Output/DustyOutput.trial.cat', format = 'fixed_width' )
 dlaw = 'agn'
 # Mg vs. z, Mg vs. g-i, g-i vs. z
 # Mean magnitude, disk mags, dust corr mags
@@ -207,7 +207,7 @@ legp = ax33.hlines( diskmodel_col, z_lo, z_hi,
 # Histrograms middle column
 
 exbins = np.linspace(col_lo, col_hi, 100)
-eybins = np.linspace(mag_lo, mag_hi, 100)
+eybins = np.linspace(mag_hi, mag_lo, 100)
 
 ax12tx = plt.axes([0,0,1,1])
 ip1x = InsetPosition( ax12, [0,0,1,0.1] )
@@ -263,7 +263,7 @@ ip3ax = InsetPosition( ax33, [0,0,1,0.1] )
 ax33tx.set_axes_locator(ip3ax)
 ax33tx.axis('off')
 ax33tx.hist( redshift, color = 'purple', alpha = 0.2,
-             bins = exbins, histtype='stepfilled')
+             bins = np.linspace(0,4,100), histtype='stepfilled')
 			
 			
 # Indicates emission line peaks
