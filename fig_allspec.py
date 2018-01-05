@@ -42,10 +42,10 @@ dalen = len( z )
 sel = 'lred_'
 sigsel = 'lredsig_'
 
-outputfilename = 'Figures/motherplot_smc.png'
+outputfilename = 'Figures/motherplot_%s.png' %dustlaw
 dust = 'smc'
 
-pname = 'Dust Corrected Disc Specta | smc'
+pname = 'Dust Corrected Disc Specta | %s' %dustlaw.upper()
 #---- TO GRAB NON LUM DAT (This is crappy coding...)
 
 #rsel = 'amm_'
@@ -55,7 +55,7 @@ pname = 'Dust Corrected Disc Specta | smc'
 # RESIDUALS NOT CORRECT and NEED TO USE mult factor!
 
 # Mult factor
-datf = ascii.read('composite_output.txt', format = 'fixed_width')
+datf = ascii.read('composite_output.dered.'+dustlaw+'.txt', format = 'fixed_width')
 sclf = np.e**(datf['scl'])
 
 for i in filt:

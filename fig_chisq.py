@@ -5,10 +5,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from astropy.io import ascii
+import adv_funclib as advtools
 
 # Read in data
 posf = '.txt'
-files = [ ['smc','cyan'], ['lmc', 'r'], ['mw','g'], ['agn', 'purple' ]  ]
+files = [ ['agn', 'blueviolet' ],
+		  ['mw','forestgreen'],
+		  ['lmc', 'orangered'],
+		  ['smc','royalblue']
+		  ]
+
 wav = np.array([3543., 4770., 6231., 7625., 9134.])
 
 dat = ascii.read( 'Output/DustyOutput.trial.cat', format = 'fixed_width' )
@@ -28,18 +34,18 @@ ax11.set_ylabel( 'CDF', fontsize = labelsize )
 
 ax11.minorticks_on()
 ax11.tick_params( axis = 'both',
-                      direction = 'in',
-                      width = 2,
-                      length = 6 )
+					  direction = 'in',
+					  width = 2,
+					  length = 6 )
 ax11.tick_params( which = 'minor',
-                      axis = 'both',
-                      direction = 'in',)
+					  axis = 'both',
+					  direction = 'in',)
 
 
 
 fig1.subplots_adjust( hspace = 0, wspace = 0.2,
-                      left = 0.12, right = 0.95,
-                      top = 0.95, bottom = 0.12 )
+					  left = 0.12, right = 0.95,
+					  top = 0.95, bottom = 0.12 )
 
 colormap = plt.cm.Blues
 
@@ -86,20 +92,52 @@ dat = dat[corrmag_i_mask]
 
 cbins = np.linspace( 0, 200, 100 )
 
+def histo( data, nbins, scl ):
+	# Generate the histogram data directly
+	hist, bin_edges = np.histogram(data, bins=nbins)
+
+	# Get the reversed cumulative sum
+	hist_neg_cumulative = [np.sum(hist[i:]) for i in range(len(hist))]
+
+	# Get the cin centres rather than the edges
+	bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.
+
+	return bin_centers, scl * hist_neg_cumulative
+
+
 # Mask for chosen law
 for law, col in files: 
   
-    # Grab relevant columns
-    redshift = dat['reds']
-    chisq = dat['chisq_'+law] * 5.
-    chisq_sort = np.sort( chisq )
-    chisq_cum = np.array( [ len( chisq_sort[0:ii] ) for ii in range( chisq.size ) ] )
-    chisq_cum = chisq_cum / float( chisq.size )
+	# Grab relevant columns
+	redshift = dat['reds']
+	chisq = dat['chisq_'+law] * 5.
+	chisq_sort = np.sort( chisq )
+	chisq_cum = np.array( [ len( chisq_sort[0:ii] ) for ii in range( chisq.size ) ] )
+	chisq_cum = chisq_cum / float( chisq.size )
 
-    # Plot
-    ax11.hist( chisq[chisq < 200], bins = cbins, histtype = 'step', normed = True, color = col )
-    ax11.plot( chisq_sort, chisq_cum, color = col )
+	# Plot
+	mask = chisq_sort < 200
+	chisq_sort = chisq_sort[mask]
+	chisq_cum = chisq_cum[mask]
+	if law == files[0][0]:
+		old_chisq_cum = np.zeros( len( chisq_cum ) )
+		old_chisq_sort = chisq_sort
 
+	old_chisq_cum = [advtools.linint( old_chisq_sort, old_chisq_cum,
+	                                 np.ones(len(old_chisq_sort)), o )[0] for o in chisq_sort ]	
+
+	ax11.fill_between( chisq_sort, old_chisq_cum, chisq_cum, alpha = 0.2, color = col )
+	ax11.plot( chisq_sort, chisq_cum, color = col )
+	#ax11.hist( chisq[chisq < 200], bins = cbins, histtype = 'step', normed = True, color = col )
+	#bin_centers, histy = histo( chisq[chisq<200], nbins = 100, scl = 1 )
+	#ax11.step( bin_centers, histy, color = col )
+	hist, bins_ = np.histogram( chisq[chisq<200], bins = cbins )
+	ax11.step( bins_[:-1], hist/600., color = col )
+
+	old_chisq_sort = chisq_sort
+	old_chisq_cum = chisq_cum
+
+	plt.pause(0.00001)
 
 # Tweak frames
 ax11.set_xlim( 0, 200 )

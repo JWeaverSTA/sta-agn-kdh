@@ -21,12 +21,14 @@ lightcurvedir = 'QSO_S82/'
 masterdir = 'QSO_Master/'
 masterfile = 'DB_QSO_S82.dat'
 outputdir = 'Output/'
-outputfile = 'DustyOutput.powerlaw.n.1.2.cat'
+outputfile = 'DustyOutput.powerlaw.junk.cat'
 outcolnamesfile = 'colnames.txt'
+
+np.random.seed(99)
 
 # SHOULD INCLUDE WARNING CHECK THAT OUTPUT FILE DOES NOT ALREADY EXIST!
 
-powerlaw = 1.2
+powerlaw = 1/3.
 fidwav = 2400. # AA
 conlimit = 4
 concrit = 1E-10
@@ -104,6 +106,7 @@ idechi = 1.27
 inumlook = 0
 ioutput = 'ON' #'OFF'
 iverbose = 'OFF' #'ON'
+ifake = 'ON'
 
 # Colors
 gi_color = masterdata['g'] - masterdata['i']
@@ -124,6 +127,7 @@ dechi = idechi
 numlook = inumlook
 output = ioutput
 verbose = iverbose
+fake = ifake
 
 # Interface
 truth_menu = 0
@@ -142,7 +146,7 @@ while truth_nav not in ('end','exit','q'):
 		ind_nl  = ( masterdata['dbID'] == numlook )
 	
 		index = np.logical_and.reduce( [ ind_agn, ind_z, ind_g,
-									ind_c, ind_ra, ind_dec ] )
+									     ind_c, ind_ra, ind_dec ] )
 							 
 		# Override index
 		if numlook != 0:
@@ -171,6 +175,7 @@ while truth_nav not in ('end','exit','q'):
 		print '  DEC:', declo, dechi, ' DEG'
 		print 'SDSSN:', numlook
 		print ' '
+		print 'FAKE......'+fake
 		print 'VERBOSE...'+verbose
 		print 'OUTPUT....'+output
 		if output == 'ON':
@@ -208,6 +213,9 @@ while truth_nav not in ('end','exit','q'):
 			dechi = float(raw_input('  upper: '))
 		if truth_menu == 'SDSSN':
 			numlook = int(raw_input('  number: '))
+		if truth_menu == 'FAKE':
+			fake = str(raw_input('  ON/OFF: '))      
+			fake == fake.upper() 
 		if truth_menu == 'VERBOSE':
 			verbose = str(raw_input('  ON/OFF: '))      
 			verbose == verbose.upper() 
@@ -230,6 +238,7 @@ while truth_nav not in ('end','exit','q'):
 			numlook = inumlook
 			output = ioutput
 			verbose = iverbose
+			fake = ifake
 
 		print ' '
 
@@ -278,7 +287,7 @@ while truth_nav not in ('end','exit','q'):
 					ax11.set_ylim( igfnt, igbrt )
 					ax11.set_xlim( izlo, izhi )
 					ax11.set_xlabel( 'Redshift z' )
-					ax11.set_ylabel( 'M$_{AB}$(g) (mag)' )
+					ax11.set_ylabel( 'AB$_{\\nu}$(g) (mag)' )
 
 					# ax2 : Colour-Magnitude diagram
 					ax12 = fig1.add_subplot( 222 )
@@ -288,8 +297,8 @@ while truth_nav not in ('end','exit','q'):
 					ax12.vlines( gi_model, igfnt, igbrt, colors='r', linestyles='--')
 					ax12.set_ylim( igfnt, igbrt )
 					ax12.set_xlim( icblu, icred )
-					ax12.set_xlabel( 'M$_{AB}$(g-i) (mag)' )
-					ax12.set_ylabel( 'M$_{AB}$(g) (mag)' )
+					ax12.set_xlabel( 'AB$_{\\nu}$(g-i) (mag)' )
+					ax12.set_ylabel( 'AB$_{\\nu}$(g) (mag)' )
 
 					# ax3 : Redshift-Colour diagram
 					ax13 = fig1.add_subplot( 223 )
@@ -299,7 +308,7 @@ while truth_nav not in ('end','exit','q'):
 					ax13.hlines( gi_model, izlo, izhi, colors='r', linestyles='--', label = 'F$_{\\nu}$ ~ $\\nu^{1/3}$' )
 					ax13.set_ylim( icred, icblu )
 					ax13.set_xlim( izlo, izhi ) 
-					ax13.set_ylabel( 'M$_{AB}$(g-i) (mag)' )
+					ax13.set_ylabel( 'AB$_{\\nu}$(g-i) (mag)' )
 					ax13.set_xlabel( 'Redshift z' )
 					ax13.legend( loc = 'upper right' )
 
@@ -702,6 +711,35 @@ while truth_nav not in ('end','exit','q'):
 
 						discsig_spec = np.sqrt( Bvar ) * ( ( brt_spec - A ) / B - F0 )
 						discsig_col = Column( name = 'disc_sig', data = discsig_spec )
+
+						# Fake data
+						if fake == 'ON':
+							z = lc_info['reds']
+							wavz = astrotools.obs2restwav( wav, z )
+							adisc_mag = astrotools.mJy2ab( disc_spec, discsig_spec )[0]
+							adisc_amag = astrotools.mag2amag( adisc_mag, discsig_spec, z )[0]
+							const = advtools.linint( wav, adisc_amag, np.ones(5), fidwav, extrapolation = True )
+							# DO NOT CHANGE THE POWER LAW!
+							# NOW LETS CHANGE IT!
+							stddither = 1/3.
+							pwrdither = np.random.normal( 1/3., 2 * stddither )
+							disc_fakeamag = astrotools.accretion_magspec( wavz, fidwav, powerlaw = pwrdither ) + const[0] 
+							smc_fakedust = dusttools.dustlaw( wavz, 'smc', tk_smc )
+							ebmv_ran = np.random.normal( 0.23, 0.10 )
+							fakesig =  abs( np.array( [np.random.normal( 0.0798207365806 , 0.0535838076288 ),
+													np.random.normal( 0.03057725429 , 0.0243599117688 ),
+													np.random.normal( 0.0357011609686 , 0.024598068152 ),
+													np.random.normal( 0.0476643746794 , 0.0308979152303 ),
+													np.random.normal( 0.133852917519 , 0.0650028778998 )] ) )
+							disc_fakemag, fakesig = astrotools.amag2mag( disc_fakeamag, fakesig, z ) 
+							disc_fakemag = disc_fakemag + ebmv_ran * smc_fakedust
+							disc_fakemag = np.random.normal( disc_fakemag, fakesig )
+							disc_fakespec, fakesig = astrotools.ab2mJy( disc_fakemag, fakesig )
+							
+							#disc_fakespec = noise * disc_fakespec
+
+							disc_col = Column( name = 'disc', data = disc_fakespec )
+							discsig_col = Column( name = 'disc_sig', data = fakesig )
 
 						# Append to table
 						spectable.add_columns( [ mean_col, meansig_col,
@@ -1299,7 +1337,7 @@ while truth_nav not in ('end','exit','q'):
 
 					# Save output
 					if output:
-						ascii.write( outputtable, outputdir + outputfile, format = 'fixed_width' )
+						ascii.write( outputtable, outputdir + outputfile, format = 'fixed_width', overwrite = True )
 						
 						# Update user
 						print 'Output: Saved output table to %s' %( outputdir + outputfile )

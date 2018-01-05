@@ -14,7 +14,7 @@ showplot = False # DO NOT CHANGE - VERY BROKEN!
 pwrlaw = 2/3.
 
 # Parameters
-dustlaw = 'smc' # make multiple composites?
+dustlaw = 'agn' # make multiple composites?
 fidwav = 2400.
 wavdict = { 'u' : 3543.,
 		'g' : 4770.,
@@ -35,18 +35,20 @@ emlines = { 'Ly$_{\infty}$'  : 912.00,
 
 
 N = 1
+fromprev = False #BROKEN
 
 # Read in data
-dat = ascii.read( 'Output/DustyOutput.powerlaw.1.3.cat', format = 'fixed_width' )
+dat = ascii.read( 'Output/DustyOutput.trial.cat', format = 'fixed_width' )
 
-outputname = 'composite_output.mean.txt'
+outputname = 'composite_output.dered.'+dustlaw+'.txt'
+lname = 'Mean AGN-corrected disc'
 
 z = dat['reds']
 dalen = len( z )
 
 wavz = np.array( [ astrotools.obs2restwav( wav, z[i] ) for i in xrange( len( z ) ) ] )
-dered_amag = np.array( [ [ dat[j][i+'_mean_amag'] for i in filt ] for j in xrange(dalen) ] )
-dered_amerr = np.array( [ [ dat[j][i+'_mean_amerr'] for i in filt ] for j in xrange(dalen) ] )
+dered_amag = np.array( [ [ dat[j][i+'_dered_'+dustlaw+'_amag'] for i in filt ] for j in xrange(dalen) ] )
+dered_amerr = np.array( [ [ dat[j][i+'_dered_'+dustlaw+'_amerr'] for i in filt ] for j in xrange(dalen) ] )
 
 lum, lumsig = astrotools.amag2lum( dered_amag, dered_amerr )
 
@@ -96,6 +98,8 @@ if showplot:
 # First Setup
 f = np.ones( dlen )
 fsig = np.ones( dlen )
+if fromprev == True:
+	f = ascii.read(outputname, format = 'fixed_width')['scl']
 Lmod_avg = np.zeros( Nbins )
 Lmod_sig = np.zeros( Nbins )
 Lmod_psig = np.zeros( Nbins )
@@ -236,6 +240,9 @@ ax11.set_yscale('log')
 ax11.set_xscale('log')
 ylo = 0.9E30
 yhi = 3.5E30
+# for mean
+ylo, yhi = 1E29, 5E30
+
 xlo = 700 #wavgrid[0]
 xhi = 7600 #wavgrid[-1]
 ax11.set_ylim( ylo, yhi )
@@ -243,8 +250,8 @@ ax11.set_xlim( xlo, xhi )
 mycmap = plt.cm.Blues
 plum = np.array( [ lum[m]/f[m] for m in range(len(lum)) ] )
 plumsig = np.array( [ lumsig[m]/f[m] for m in range( len(lum )) ] )
-xbins = np.logspace( np.log10(xlo), np.log10(xhi), 200)
-ybins = np.logspace( np.log10(ylo), np.log10(yhi), 200)
+xbins = np.logspace( np.log10(xlo), np.log10(xhi), 150)  # DO THIS SSECTION AGAIN FOR RESIDUALS
+ybins = np.logspace( np.log10(ylo), np.log10(yhi), 100)
 H, xedges, yedges = np.histogram2d( wavz.flatten(), plum.flatten(), 
 			 bins = [xbins, ybins], normed = False, weights = 1./plumsig.flatten(),
 			 range = ( (xlo, xhi), (ylo, yhi) ) )
@@ -258,7 +265,7 @@ fidmag = astrotools.lum2amag( Lfid, 0. )[0]
 accmag = astrotools.accretion_magspec( wavgrid, fidwav, pwrlaw ) + fidmag
 lumt, _ = astrotools.amag2lum( accmag, 0. )
 lumt = lumt.flatten()
-ax11.plot( wavgrid, Lmod_avg, 'navy' , zorder = 10, label = 'Mean disc')
+ax11.plot( wavgrid, Lmod_avg, 'navy' , zorder = 10, label = lname)
 
 ax11.fill_between( wavgrid, Lmod_avg - Lmod_psig, Lmod_avg + Lmod_psig,
                    alpha = 0.2, color = 'royalblue', zorder = 10)
@@ -277,9 +284,11 @@ ax11.legend( loc = 4 )
 #ax12.set_yscale('log')
 ax12.set_xscale('log')
 ax12.set_xlim( xlo, xhi )
-ylo2, yhi2 = -1E29, 2E29
+# for disc ylo2, yhi2 = -1E29, 2E29
+mycmap = plt.cm.Greens
+ylo2, yhi2 = -5, 5
 ax12.set_ylim(ylo2,yhi2)
-lresidual = Lmod_avg - lumt
+lresidual = np.log10(Lmod_avg) - np.log10(lumt)
 ax12.hlines( 0, xlo, xhi, linestyles = 'dashed' )
 ax12.vlines( emlines.values(), ylo2, yhi2,
 		 color = 'k', alpha = 0.6, linestyles = 'dotted' )
@@ -287,7 +296,20 @@ ax12.fill_between( wavgrid, lresidual - Lmod_psig, lresidual + Lmod_psig,
                    alpha = 0.2, color = 'g', zorder = 10)
 ax12.plot( wavgrid, lresidual , c='g' )
 
-ax12.set_ylabel( 'Residuals' )
+accmag = astrotools.accretion_magspec( wavz.flatten(), fidwav, pwrlaw ) + fidmag
+lumt, _ = astrotools.amag2lum( accmag, 0. )
+lumt = lumt.flatten()
+lresidual = np.log10(plum.flatten()) - np.log10(lumt)
+ylo = np.nanmin(lresidual)
+yhi = np.nanmax(lresidual)
+ybins = np.linspace( ylo, yhi, 10 )
+H, xedges, yedges = np.histogram2d( wavz.flatten(), lresidual , 
+			 bins = [xbins, ybins], normed = False, weights = 1./plumsig.flatten(),
+			 range = ( (xlo, xhi), (ylo, yhi) ) )
+ax12.pcolormesh( xedges, yedges, H.T/H.max(),
+			 cmap = mycmap )
+
+ax12.set_ylabel( 'Residuals (dex)' )
 
 ax13.set_yscale('log')
 ax13.set_xscale('log')

@@ -6,9 +6,9 @@ import adv_funclib as advtools
 
 # Data Associated Arrays
 # Dustlaws
-dustlaws = ( 'smc', 'lmc', 'mw', 'agn' )
+dustlaws = ( 'mw', 'lmc', 'agn', 'smc')# 'lmc', 'mw', 'agn' )
 dustlaws = np.array( dustlaws )
-dcolor = ( 'royalblue', 'orangered', 'forestgreen', 'blueviolet' )
+dcolor = ( 'forestgreen', 'orangered', 'blueviolet', 'royalblue' )
 # Filters (in order)
 filters = ( 'u', 'g', 'r', 'i', 'z' )
 filters = np.array( filters )
@@ -40,12 +40,27 @@ chem = { 'Ly$_{\infty}$'  : 912.00,
 		 'H$_{\\alpha}$'  : 6562.80}
 
 
-powerlaw = ( -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 
-			  0., 1/8., 0.2, 0.25, 1/3., 0.4, 0.5,
-			   0.6, 2/3., 0.75, 0.8, 1.0, 1.2 )
-powerfile = ( 'nn.1.2', 'nn.1.0', 'nn.0.8', 'nn.0.6', 'nn.0.4', 'nn.0.2', 
-			  'n.0.0', '0.125', 'n.0.2', '0.25', '0.33', 'n.0.4', '0.5',
-			  'n.0.6', '0.66', '0.75', 'n.0.8', 'n.1.0', 'n.1.2')
+powerlaw = ( -1.2, -1.0, -0.8,
+ 			-0.6, -0.4, -0.2, 
+			 0., 1/8.,
+			 0.2, 0.25, 
+			 1/3.,
+			 0.4, 0.5,
+			 0.6,
+			 2/3., 0.75, #0.8,
+			  1.0, 1.2
+			  )
+powerfile = ( 'n.1.2', 'n.1.0', 
+			  'n.0.8',
+			  'n.0.6', 'n.0.4', 'n.0.2', 
+			  '0.0', '0.125',
+			  '0.2', '0.25', 
+			  '0.33',
+			  '0.4', '0.5',
+			  '0.6', 
+			  '0.66', '0.75',# '0.8',
+			   '1.0', '1.2'
+			  )
 
 fidwav = 2400.
 pwav = np.linspace( 800, 8000, 1000 )
@@ -55,8 +70,8 @@ ax11.plot( pwav, astrotools.accretion_magspec(pwav,fidwav,powerlaw=1/3.), color 
 
 ax11.invert_yaxis()
 fig2, (ax21,ax22) = plt.subplots(nrows = 1, ncols = 2)
-ax22.set( xlabel = 'Accretion Exponent', ylabel = 'Log $\sigma$(g-i)')
-ax21.set( xlabel = 'Accretion Exponent', ylabel = 'Log $\chi^{2}$' )
+ax22.set( xlabel = 'Powerlaw index', ylabel = 'Log $\sigma$(g-i)')
+ax21.set( xlabel = 'Powerlaw index', ylabel = 'Log $\chi^{2}$' )
 
 holdchi = np.zeros( shape = ( len( powerlaw ), 4 ) )
 holdstd = np.zeros( shape = holdchi.shape )
@@ -73,7 +88,7 @@ for i, p in enumerate( powerlaw ):
 
 	acc_col = astrotools.accretion_color( wav[1], wav[3], powerlaw = pwr )
 
-	name = 'Output/DustyOutput.powerlaw.'+powerfile[i]+'.cat'
+	name = 'Output/DustyOutput.powerlaw.fakedither.2sig.'+powerfile[i]+'.cat'
 
 	dat = ascii.read( name, format = 'fixed_width' )
 
@@ -84,6 +99,11 @@ for i, p in enumerate( powerlaw ):
 		gi_col = dat['g_dered_'+k+'_amag'] - dat['i_dered_'+k+'_amag']
 		std_gi = advtools.std( gi_col, acc_col, np.ones( len(gi_col) ) )
 		holdstd[i,j] = std_gi
+
+ylo1, yhi1 = 0.7*np.min(holdchi), 1.5*np.max(holdchi)
+ylo2, yhi2 =  0.7*np.min(holdstd), 1.5*np.max(holdstd)
+ax21.vlines( 1/3., ylo1, yhi1, 'k', linestyles = 'dotted' )
+ax22.vlines( 1/3., ylo2, yhi2, 'k', linestyles = 'dotted' )
 
 for i, j in enumerate( holdchi.T ):
 	ax21.scatter( holdpwr, holdchi.T[i], c = dcolor[i], marker = 'o', label = dustlaws[i].upper() )
@@ -114,11 +134,9 @@ for i, j in enumerate( holdchi.T ):
 	ax21.plot( pyx, pyb, color = dcolor[i] )
 	ax22.plot( pyx, pybstd, color = dcolor[i] )
 	
-	minx = pyx[pyb==min(pyb)]
-	ax21.vlines(minx, 200000, 3E6, linestyles = 'dotted', colors = dcolor[i])
+	minx = pyx[pyb==min(pyb)][0]
 
-	minxstd = pyx[pybstd == min(pybstd)]
-	ax22.vlines(minxstd, 0.139, 0.465, linestyles = 'dotted', colors = dcolor[i])
+	minxstd = pyx[pybstd == min(pybstd)][0]
 
 	for o in range(np.where(pyb==min(pyb))[0], len(pyb) ):
 		x = pyx[o]
@@ -127,6 +145,24 @@ for i, j in enumerate( holdchi.T ):
 		if y - min(pyb) > ( min(pyb) / dof ):
 			break
 	sigx = x - minx
+
+	for o in range(np.where(pybstd==min(pybstd))[0], len(pybstd) ):
+		x = pyx[o]
+		y = pybstd[o]
+		dof = (5-2) * len(dat)
+		if y - min(pybstd) > ( min(pybstd) / dof ):
+			break
+	sigxstd = x - minxstd
+
+	ax21.fill_between( [ minx - sigx, minx + sigx ], [ylo1, ylo1], [yhi1, yhi1],
+						color = dcolor[i], alpha = 0.2 )
+	ax21.vlines(minx, ylo1, yhi1, linestyles = 'dotted', colors = dcolor[i])
+
+	ax22.fill_between( [ minxstd - sigxstd, minxstd + sigxstd ], [ylo2, ylo2], [yhi2, yhi2],
+						color = dcolor[i], alpha = 0.2 )
+	ax22.vlines(minxstd, ylo2, yhi2, linestyles = 'dotted', colors = dcolor[i])
+
+
 	print 'for %s : accexp = %2.5f +/- %2.5f | chisq = %2.3e | dof = %2.5f | chisq/dof = %2.5f '%(dustlaws[i], minx, sigx, min(pyb), dof, min(pyb)/dof )
 
 
@@ -139,8 +175,8 @@ for i, j in enumerate( holdchi.T ):
 
 
 
-ax21.set_ylim( 200000, 3E6 )
-ax22.set_ylim( 0.139, 0.465 )
+ax21.set_ylim( ylo1, yhi1 )
+ax22.set_ylim( ylo2, yhi2 )
 ax21.set_yscale('log')
 ax22.set_yscale('log')
 

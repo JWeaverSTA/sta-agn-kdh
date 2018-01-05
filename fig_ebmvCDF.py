@@ -5,12 +5,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from astropy.io import ascii
-
+import adv_funclib as advtools
 
 
 # Read in data
 posf = '.txt'
-files = [ ['smc','cyan'], ['lmc', 'r'], ['mw','g'], ['agn', 'purple' ]  ]
+files = [ ['agn', 'blueviolet' ],
+      ['mw','forestgreen'],
+      ['lmc', 'orangered'],
+      ['smc','royalblue']
+      ]
 wav = np.array([3543., 4770., 6231., 7625., 9134.])
 
 dat = ascii.read( 'Output/DustyOutput.trial.cat', format = 'fixed_width' )
@@ -77,7 +81,7 @@ dat = dat[diskmag_i_mask]
 corrmag_i_mask = dat['i_dered_smc_amag'] == dat['i_dered_smc_amag']
 dat = dat[corrmag_i_mask]
 
-bins = np.linspace( -0.5, 2, 100)
+cbins = np.linspace( -0.5, 2, 100)
 # Mask for chosen law
 for law, col in files: 
     # Grab relevant columns
@@ -89,9 +93,24 @@ for law, col in files:
 
     lawname = law.upper()
 
+    if law == files[0][0]:
+      old_ebmv_cum = np.zeros( len( ebmv_cum ))
+      old_ebmv_sort = ebmv_sort 
+
+    old_ebmv_cum = [advtools.linint( old_ebmv_sort, old_ebmv_cum,
+                                    np.ones(len(old_ebmv_sort)), o)[0] for o in ebmv_sort ]
+
     # Plot
-    ax11.hist( ebmv, bins = bins, histtype = 'step', normed = True, color = col, label = None )
+    #ax11.hist( ebmv, bins = bins, histtype = 'step', normed = True, color = col, label = None )
+    ax11.fill_between( ebmv_sort, old_ebmv_cum, alpha = 0.2, color = col )
     ax11.plot( ebmv_sort, 3.5 *  ebmv_cum, color = col, label = lawname )
+
+    hist, bins_ = np.histogram( ebmv, bins = cbins )
+    ax11.step( bins_[:-1], hist/1300., color = col )
+
+    old_ebmv_sort = ebmv_sort
+    old_ebmv_cum = ebmv_cum
+
 
 # Vline
 ax11.vlines( 0, 0, 3.5,

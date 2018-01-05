@@ -69,7 +69,7 @@ def mag2amag( mag, magsig, z ):
 def amag2mag( amag, amagsig, z ):
 	CoMDist = cd.comoving_distance( z, **cosmo )
 	cterm = - 5 * np.log10( CoMDist ) - 25.
-	return amag - cterm, amag_sig
+	return amag - cterm, amagsig
 
 # Absolute magnitude to luminosity
 def amag2lum( amag, amagsig ):
